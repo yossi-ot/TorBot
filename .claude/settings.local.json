@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsx:*)",
+      "Bash(ngrok:*)",
+      "Bash(lt:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx localtunnel:*)",
+      "Bash(winget install:*)",
+      "Bash(cmd //c \"where cloudflared.exe\")",
+      "Bash(curl:*)",
+      "Bash(\"/c/Program Files \\(x86\\)/cloudflared/cloudflared.exe\" tunnel --url http://localhost:3000)",
+      "Bash(\"/c/Program Files \\(x86\\)/cloudflared/cloudflared.exe\" tunnel --url http://localhost:3000 --protocol http2)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
