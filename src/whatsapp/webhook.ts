@@ -33,16 +33,20 @@ export interface WhatsAppWebhookBody {
 export function registerWebhookRoutes(app: FastifyInstance) {
   // Meta verification endpoint
   app.get('/webhook', async (request, reply) => {
-    const query = request.query as Record<string, string>;
-    const mode = query['hub.mode'];
-    const token = query['hub.verify_token'];
-    const challenge = query['hub.challenge'];
+    const query = request.query as any;
+    // Fastify may parse hub.mode as nested { hub: { mode } } or flat { 'hub.mode' }
+    const mode = query['hub.mode'] || query?.hub?.mode;
+    const token = query['hub.verify_token'] || query?.hub?.verify_token;
+    const challenge = query['hub.challenge'] || query?.hub?.challenge;
+
+    console.log('Webhook verify attempt:', { mode, token: token ? '***' : 'empty', challenge, configToken: config.whatsapp.verifyToken ? '***' : 'empty' });
 
     if (mode === 'subscribe' && token === config.whatsapp.verifyToken) {
-      console.log('Webhook verified');
+      console.log('Webhook verified successfully');
       return reply.code(200).send(challenge);
     }
 
+    console.log('Webhook verification FAILED');
     return reply.code(403).send('Forbidden');
   });
 
