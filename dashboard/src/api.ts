@@ -77,6 +77,10 @@ export const api = {
   createBlockedSlot: (data: any) => request<any>('/blocked-slots', { method: 'POST', body: JSON.stringify(data) }),
   deleteBlockedSlot: (id: string) => request<{ ok: boolean }>(`/blocked-slots/${id}`, { method: 'DELETE' }),
 
+  // Settings
+  getSettings: () => request<any>('/settings'),
+  updateSettings: (data: any) => request<{ ok: boolean }>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+
   // Admin
   getTenants: () => request<any[]>('/admin/tenants'),
 

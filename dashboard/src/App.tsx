@@ -8,6 +8,7 @@ import Services from './pages/Services';
 import WorkingHours from './pages/WorkingHours';
 import Stats from './pages/Stats';
 import Admin from './pages/Admin';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="services" element={<Services />} />
         <Route path="working-hours" element={<WorkingHours />} />
         <Route path="stats" element={<Stats />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="admin" element={<Admin />} />
       </Route>
     </Routes>

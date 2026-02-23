@@ -7,6 +7,7 @@ import { registerWorkingHoursRoutes } from './working-hours.js';
 import { registerBlockedSlotRoutes } from './blocked-slots.js';
 import { registerStatsRoutes } from './stats.js';
 import { registerAdminRoutes } from './admin.js';
+import { registerSettingsRoutes } from './settings.js';
 
 export function registerApiRoutes(app: FastifyInstance) {
   // Auth routes (no JWT required)
@@ -25,4 +26,5 @@ export function registerApiRoutes(app: FastifyInstance) {
   registerBlockedSlotRoutes(app);
   registerStatsRoutes(app);
   registerAdminRoutes(app);
+  registerSettingsRoutes(app);
 }
