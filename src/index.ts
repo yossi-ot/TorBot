@@ -26,7 +26,6 @@ registerTestRoutes(app);
 app.register(fastifyStatic, {
   root: join(__dirname, '..', 'dashboard', 'dist'),
   prefix: '/dashboard/',
-  decorateReply: false,
   wildcard: false,
 });
 
