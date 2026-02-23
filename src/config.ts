@@ -10,4 +10,8 @@ export const config = {
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY || '',
   },
+  dashboard: {
+    password: process.env.DASHBOARD_PASSWORD || 'admin123',
+    jwtSecret: process.env.JWT_SECRET || 'torbot-dev-secret-change-in-production',
+  },
 };
