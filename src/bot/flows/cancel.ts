@@ -3,14 +3,14 @@ import { getCustomerAppointments, cancelBooking, findOrCreateCustomer } from '..
 import { dayjs, formatDateHebrew } from '../../utils/date.js';
 
 /** Start cancel flow - show upcoming appointments */
-export function startCancel(session: Session): string {
-  const customerId = findOrCreateCustomer(
+export async function startCancel(session: Session): Promise<string> {
+  const customerId = await findOrCreateCustomer(
     session.tenantId,
     session.customerPhone,
     session.customerName || undefined,
   );
 
-  const appointments = getCustomerAppointments(session.tenantId, customerId);
+  const appointments = await getCustomerAppointments(session.tenantId, customerId);
 
   if (appointments.length === 0) {
     return 'אין לך תורים קרובים.';
@@ -26,14 +26,14 @@ export function startCancel(session: Session): string {
 }
 
 /** Handle cancel selection */
-export function handleCancelSelection(session: Session, input: string): string {
-  const customerId = findOrCreateCustomer(
+export async function handleCancelSelection(session: Session, input: string): Promise<string> {
+  const customerId = await findOrCreateCustomer(
     session.tenantId,
     session.customerPhone,
     session.customerName || undefined,
   );
 
-  const appointments = getCustomerAppointments(session.tenantId, customerId);
+  const appointments = await getCustomerAppointments(session.tenantId, customerId);
   const num = parseInt(input);
 
   if (num < 1 || num > appointments.length || isNaN(num)) {
@@ -41,7 +41,7 @@ export function handleCancelSelection(session: Session, input: string): string {
   }
 
   const appointment = appointments[num - 1];
-  const success = cancelBooking(appointment.id);
+  const success = await cancelBooking(appointment.id);
 
   updateSession(session, { state: 'IDLE' });
 

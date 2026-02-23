@@ -2,14 +2,14 @@ import { Session } from '../session.js';
 import { getCustomerAppointments, findOrCreateCustomer } from '../../scheduling/booking.js';
 import { dayjs, formatDateHebrew } from '../../utils/date.js';
 
-export function handleMyAppointments(session: Session): string {
-  const customerId = findOrCreateCustomer(
+export async function handleMyAppointments(session: Session): Promise<string> {
+  const customerId = await findOrCreateCustomer(
     session.tenantId,
     session.customerPhone,
     session.customerName || undefined,
   );
 
-  const appointments = getCustomerAppointments(session.tenantId, customerId);
+  const appointments = await getCustomerAppointments(session.tenantId, customerId);
 
   if (appointments.length === 0) {
     return 'אין לך תורים קרובים.\nרוצה לקבוע? כתוב "תור".';

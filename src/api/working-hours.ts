@@ -7,10 +7,9 @@ export function registerWorkingHoursRoutes(app: FastifyInstance) {
   // Get all working hours
   app.get('/api/working-hours', async (request) => {
     const tenantId = (request as any).tenantId;
-    return db.select().from(schema.workingHours)
+    return await db.select().from(schema.workingHours)
       .where(eq(schema.workingHours.tenantId, tenantId))
-      .orderBy(schema.workingHours.dayOfWeek)
-      .all();
+      .orderBy(schema.workingHours.dayOfWeek);
   });
 
   // Bulk replace working hours
@@ -25,12 +24,11 @@ export function registerWorkingHoursRoutes(app: FastifyInstance) {
     }>;
 
     // Delete existing and insert new in one go
-    db.delete(schema.workingHours)
-      .where(eq(schema.workingHours.tenantId, tenantId))
-      .run();
+    await db.delete(schema.workingHours)
+      .where(eq(schema.workingHours.tenantId, tenantId));
 
     for (const h of hours) {
-      db.insert(schema.workingHours).values({
+      await db.insert(schema.workingHours).values({
         id: uuid(),
         tenantId,
         staffId: h.staffId || null,
@@ -38,12 +36,11 @@ export function registerWorkingHoursRoutes(app: FastifyInstance) {
         startTime: h.startTime,
         endTime: h.endTime,
         isActive: h.isActive,
-      }).run();
+      });
     }
 
-    return db.select().from(schema.workingHours)
+    return await db.select().from(schema.workingHours)
       .where(eq(schema.workingHours.tenantId, tenantId))
-      .orderBy(schema.workingHours.dayOfWeek)
-      .all();
+      .orderBy(schema.workingHours.dayOfWeek);
   });
 }

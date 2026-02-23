@@ -17,15 +17,15 @@ interface IncomingMessage {
 }
 
 /** Find tenant by WhatsApp phone number ID */
-function findTenant(phoneNumberId: string) {
-  return db.select().from(schema.tenants)
-    .where(eq(schema.tenants.whatsappPhoneNumberId, phoneNumberId))
-    .get();
+async function findTenant(phoneNumberId: string) {
+  const [tenant] = await db.select().from(schema.tenants)
+    .where(eq(schema.tenants.whatsappPhoneNumberId, phoneNumberId));
+  return tenant;
 }
 
 /** Main message handler */
 export async function handleIncomingMessage(msg: IncomingMessage): Promise<void> {
-  const tenant = findTenant(msg.phoneNumberId);
+  const tenant = await findTenant(msg.phoneNumberId);
   if (!tenant) {
     console.warn(`No tenant found for phone_number_id: ${msg.phoneNumberId}`);
     return;
@@ -86,13 +86,11 @@ async function routeMessage(session: Session, text: string): Promise<string> {
   }
 
   // Pattern matching failed - try AI
-  const tenant = db.select().from(schema.tenants)
-    .where(eq(schema.tenants.id, session.tenantId))
-    .get();
+  const [tenant] = await db.select().from(schema.tenants)
+    .where(eq(schema.tenants.id, session.tenantId));
 
-  const services = db.select().from(schema.services)
-    .where(eq(schema.services.tenantId, session.tenantId))
-    .all();
+  const services = await db.select().from(schema.services)
+    .where(eq(schema.services.tenantId, session.tenantId));
 
   const businessContext = `עסק: ${tenant?.name}. שירותים: ${services.map(s => s.name).join(', ')}`;
 

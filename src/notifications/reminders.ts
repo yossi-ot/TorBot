@@ -22,7 +22,7 @@ async function sendReminders() {
   const oneHourFromNow = now.add(1, 'hour');
 
   // Find appointments in the next hour that haven't been reminded
-  const upcoming = db.select({
+  const upcoming = await db.select({
     appointmentId: schema.appointments.id,
     startTime: schema.appointments.startTime,
     serviceName: schema.services.name,
@@ -41,8 +41,7 @@ async function sendReminders() {
       eq(schema.appointments.reminderSent, false),
       gte(schema.appointments.startTime, now.format('YYYY-MM-DDTHH:mm:ss')),
       lte(schema.appointments.startTime, oneHourFromNow.format('YYYY-MM-DDTHH:mm:ss')),
-    ))
-    .all();
+    ));
 
   for (const appt of upcoming) {
     const startDate = dayjs(appt.startTime);
@@ -57,10 +56,9 @@ async function sendReminders() {
       });
 
       // Mark as reminded
-      db.update(schema.appointments)
+      await db.update(schema.appointments)
         .set({ reminderSent: true })
-        .where(eq(schema.appointments.id, appt.appointmentId))
-        .run();
+        .where(eq(schema.appointments.id, appt.appointmentId));
 
       console.log(`Reminder sent to ${appt.customerPhone} for appointment ${appt.appointmentId}`);
     } catch (err) {

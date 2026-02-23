@@ -14,10 +14,10 @@ export function registerStatsRoutes(app: FastifyInstance) {
     const where = and(...conditions);
 
     // Status counts
-    const statusCounts = db.select({
+    const statusCounts = await db.select({
       status: schema.appointments.status,
       count: sql<number>`count(*)`,
-    }).from(schema.appointments).where(where).groupBy(schema.appointments.status).all();
+    }).from(schema.appointments).where(where).groupBy(schema.appointments.status);
 
     const counts: Record<string, number> = {};
     let total = 0;
@@ -27,15 +27,14 @@ export function registerStatsRoutes(app: FastifyInstance) {
     }
 
     // Revenue (completed + confirmed appointments)
-    const revenueResult = db.select({
+    const [revenueResult] = await db.select({
       total: sql<number>`coalesce(sum(${schema.services.price}), 0)`,
     }).from(schema.appointments)
       .leftJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
-      .where(and(...conditions, sql`${schema.appointments.status} IN ('confirmed', 'completed')`))
-      .get();
+      .where(and(...conditions, sql`${schema.appointments.status} IN ('confirmed', 'completed')`));
 
     // Popular services
-    const popularServices = db.select({
+    const popularServices = await db.select({
       name: schema.services.name,
       count: sql<number>`count(*)`,
       revenue: sql<number>`coalesce(sum(${schema.services.price}), 0)`,
@@ -43,27 +42,25 @@ export function registerStatsRoutes(app: FastifyInstance) {
       .leftJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
       .where(where)
       .groupBy(schema.services.name)
-      .orderBy(sql`count(*) DESC`)
-      .all();
+      .orderBy(sql`count(*) DESC`);
 
     // Daily counts
-    const dailyCounts = db.select({
+    const dailyCounts = await db.select({
       date: sql<string>`substr(${schema.appointments.startTime}, 1, 10)`,
       count: sql<number>`count(*)`,
     }).from(schema.appointments)
       .where(where)
       .groupBy(sql`substr(${schema.appointments.startTime}, 1, 10)`)
-      .orderBy(sql`substr(${schema.appointments.startTime}, 1, 10)`)
-      .all();
+      .orderBy(sql`substr(${schema.appointments.startTime}, 1, 10)`);
 
     // New customers in range
     const customerConditions = [eq(schema.customers.tenantId, tenantId)];
     if (from) customerConditions.push(gte(schema.customers.createdAt, from));
     if (to) customerConditions.push(lte(schema.customers.createdAt, to + 'T23:59:59'));
 
-    const newCustomersResult = db.select({
+    const [newCustomersResult] = await db.select({
       count: sql<number>`count(*)`,
-    }).from(schema.customers).where(and(...customerConditions)).get();
+    }).from(schema.customers).where(and(...customerConditions));
 
     return {
       totalAppointments: total,

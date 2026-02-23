@@ -13,7 +13,7 @@ export function registerAppointmentRoutes(app: FastifyInstance) {
     if (from) conditions.push(gte(schema.appointments.startTime, from));
     if (to) conditions.push(lte(schema.appointments.startTime, to + 'T23:59:59'));
 
-    const rows = db.select({
+    const rows = await db.select({
       id: schema.appointments.id,
       startTime: schema.appointments.startTime,
       endTime: schema.appointments.endTime,
@@ -33,8 +33,7 @@ export function registerAppointmentRoutes(app: FastifyInstance) {
       .leftJoin(schema.customers, eq(schema.appointments.customerId, schema.customers.id))
       .leftJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
       .where(and(...conditions))
-      .orderBy(schema.appointments.startTime)
-      .all();
+      .orderBy(schema.appointments.startTime);
 
     return rows.map(r => ({
       id: r.id,
@@ -55,9 +54,8 @@ export function registerAppointmentRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const { status, notes } = request.body as { status?: string; notes?: string };
 
-    const existing = db.select().from(schema.appointments)
-      .where(and(eq(schema.appointments.id, id), eq(schema.appointments.tenantId, tenantId)))
-      .get();
+    const [existing] = await db.select().from(schema.appointments)
+      .where(and(eq(schema.appointments.id, id), eq(schema.appointments.tenantId, tenantId)));
 
     if (!existing) return reply.code(404).send({ error: 'Not found' });
 
@@ -70,8 +68,8 @@ export function registerAppointmentRoutes(app: FastifyInstance) {
     }
     if (notes !== undefined) updates.notes = notes;
 
-    db.update(schema.appointments).set(updates)
-      .where(eq(schema.appointments.id, id)).run();
+    await db.update(schema.appointments).set(updates)
+      .where(eq(schema.appointments.id, id));
 
     return { ok: true };
   });

@@ -7,10 +7,9 @@ export function registerBlockedSlotRoutes(app: FastifyInstance) {
   // List blocked slots
   app.get('/api/blocked-slots', async (request) => {
     const tenantId = (request as any).tenantId;
-    return db.select().from(schema.blockedSlots)
+    return await db.select().from(schema.blockedSlots)
       .where(eq(schema.blockedSlots.tenantId, tenantId))
-      .orderBy(schema.blockedSlots.startDatetime)
-      .all();
+      .orderBy(schema.blockedSlots.startDatetime);
   });
 
   // Create blocked slot
@@ -23,11 +22,12 @@ export function registerBlockedSlotRoutes(app: FastifyInstance) {
     };
 
     const id = uuid();
-    db.insert(schema.blockedSlots).values({
+    await db.insert(schema.blockedSlots).values({
       id, tenantId, staffId: null, startDatetime, endDatetime, reason: reason || null,
-    }).run();
+    });
 
-    return db.select().from(schema.blockedSlots).where(eq(schema.blockedSlots.id, id)).get();
+    const [created] = await db.select().from(schema.blockedSlots).where(eq(schema.blockedSlots.id, id));
+    return created;
   });
 
   // Delete blocked slot
@@ -35,13 +35,12 @@ export function registerBlockedSlotRoutes(app: FastifyInstance) {
     const tenantId = (request as any).tenantId;
     const { id } = request.params as { id: string };
 
-    const existing = db.select().from(schema.blockedSlots)
-      .where(and(eq(schema.blockedSlots.id, id), eq(schema.blockedSlots.tenantId, tenantId)))
-      .get();
+    const [existing] = await db.select().from(schema.blockedSlots)
+      .where(and(eq(schema.blockedSlots.id, id), eq(schema.blockedSlots.tenantId, tenantId)));
 
     if (!existing) return reply.code(404).send({ error: 'Not found' });
 
-    db.delete(schema.blockedSlots).where(eq(schema.blockedSlots.id, id)).run();
+    await db.delete(schema.blockedSlots).where(eq(schema.blockedSlots.id, id));
     return { ok: true };
   });
 }

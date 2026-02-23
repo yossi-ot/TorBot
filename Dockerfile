@@ -15,10 +15,7 @@ COPY . .
 # Build dashboard
 RUN cd dashboard && npm run build
 
-# Create data directory for SQLite
-RUN mkdir -p data
-
 EXPOSE 3000
 
-# Seed at runtime (so env vars are available), then start server
-CMD ["sh", "-c", "npx tsx src/db/seed.ts && npx tsx src/index.ts"]
+# Push schema to DB, seed demo data, then start server
+CMD ["sh", "-c", "npx drizzle-kit push && npx tsx src/db/seed.ts && npx tsx src/index.ts"]

@@ -11,12 +11,12 @@ export interface TimeSlot {
  * Get available time slots for a given tenant, date, and service duration.
  * Computes: working_hours - existing_appointments - blocked_slots
  */
-export function getAvailableSlots(
+export async function getAvailableSlots(
   tenantId: string,
   date: string,          // YYYY-MM-DD
   durationMinutes: number,
   staffId?: string,
-): TimeSlot[] {
+): Promise<TimeSlot[]> {
   const dayOfWeek = dayjs(date).day(); // 0=Sunday
 
   // 1. Get working hours for this day
@@ -29,9 +29,8 @@ export function getAvailableSlots(
     hoursQuery.push(eq(schema.workingHours.staffId, staffId));
   }
 
-  const hours = db.select().from(schema.workingHours)
-    .where(and(...hoursQuery))
-    .all();
+  const hours = await db.select().from(schema.workingHours)
+    .where(and(...hoursQuery));
 
   if (hours.length === 0) return [];
 
@@ -39,23 +38,21 @@ export function getAvailableSlots(
   const dateStart = `${date}T00:00:00`;
   const dateEnd = `${date}T23:59:59`;
 
-  const existingAppointments = db.select().from(schema.appointments)
+  const existingAppointments = await db.select().from(schema.appointments)
     .where(and(
       eq(schema.appointments.tenantId, tenantId),
       eq(schema.appointments.status, 'confirmed'),
       gte(schema.appointments.startTime, dateStart),
       lte(schema.appointments.startTime, dateEnd),
-    ))
-    .all();
+    ));
 
   // 3. Get blocked slots for this date
-  const blockedSlots = db.select().from(schema.blockedSlots)
+  const blockedSlots = await db.select().from(schema.blockedSlots)
     .where(and(
       eq(schema.blockedSlots.tenantId, tenantId),
       lte(schema.blockedSlots.startDatetime, dateEnd),
       gte(schema.blockedSlots.endDatetime, dateStart),
-    ))
-    .all();
+    ));
 
   // 4. Generate all possible slots in 30-minute intervals
   const available: TimeSlot[] = [];
@@ -106,17 +103,17 @@ export function getAvailableSlots(
 /**
  * Get available dates for the next N days that have at least one free slot.
  */
-export function getAvailableDates(
+export async function getAvailableDates(
   tenantId: string,
   durationMinutes: number,
   daysAhead: number = 7,
-): string[] {
+): Promise<string[]> {
   const dates: string[] = [];
   const today = dayjs();
 
   for (let i = 0; i < daysAhead; i++) {
     const date = today.add(i, 'day').format('YYYY-MM-DD');
-    const slots = getAvailableSlots(tenantId, date, durationMinutes);
+    const slots = await getAvailableSlots(tenantId, date, durationMinutes);
     if (slots.length > 0) {
       dates.push(date);
     }

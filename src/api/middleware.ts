@@ -5,7 +5,9 @@ import { config } from '../config.js';
 const ALGORITHM = 'sha256';
 
 interface JwtPayload {
+  userId: string;
   tenantId: string;
+  role: string;
   iat: number;
   exp: number;
 }
@@ -56,4 +58,6 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   }
 
   (request as any).tenantId = payload.tenantId;
+  (request as any).userId = payload.userId;
+  (request as any).role = payload.role;
 }

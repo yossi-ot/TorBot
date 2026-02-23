@@ -1,20 +1,12 @@
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import pg from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema.js';
-import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { config } from '../config.js';
 
-const DB_PATH = './data/torbot.db';
+const pool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  ssl: config.databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false },
+});
 
-// Ensure data directory exists
-const dir = dirname(DB_PATH);
-if (!existsSync(dir)) {
-  mkdirSync(dir, { recursive: true });
-}
-
-const sqlite = new Database(DB_PATH);
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
-
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(pool, { schema });
 export { schema };

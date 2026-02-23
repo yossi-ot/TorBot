@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api';
 
 export default function Login() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const { token } = await api.login(password);
+      const { token } = await api.login(email, password);
       setToken(token);
       navigate('/');
     } catch (err: any) {
@@ -31,24 +32,38 @@ export default function Login() {
           <p className="text-gray-500 text-sm mt-1">התחברות ללוח הבקרה</p>
         </div>
         <form onSubmit={handleSubmit}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">סיסמה</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">אימייל</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            placeholder="your@email.com"
+            autoFocus
+          />
+          <label className="block text-sm font-medium text-gray-700 mb-1 mt-3">סיסמה</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
             placeholder="הכנס סיסמה"
-            autoFocus
           />
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           <button
             type="submit"
-            disabled={loading || !password}
+            disabled={loading || !email || !password}
             className="w-full mt-4 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
           >
             {loading ? 'מתחבר...' : 'התחבר'}
           </button>
         </form>
+        <p className="text-center text-sm text-gray-500 mt-4">
+          אין לך חשבון?{' '}
+          <Link to="/register" className="text-emerald-600 hover:underline font-medium">
+            הרשמה לעסק חדש
+          </Link>
+        </p>
       </div>
     </div>
   );

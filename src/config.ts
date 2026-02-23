@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 export const config = {
   port: parseInt(process.env.PORT || '3000'),
+  databaseUrl: process.env.DATABASE_URL || 'postgresql://localhost:5432/torbot',
   whatsapp: {
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
@@ -11,7 +12,6 @@ export const config = {
     apiKey: process.env.ANTHROPIC_API_KEY || '',
   },
   dashboard: {
-    password: process.env.DASHBOARD_PASSWORD || 'admin123',
     jwtSecret: process.env.JWT_SECRET || 'torbot-dev-secret-change-in-production',
   },
 };

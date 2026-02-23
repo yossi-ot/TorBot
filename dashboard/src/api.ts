@@ -41,9 +41,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  login: (password: string) => request<{ token: string }>('/auth/login', {
-    method: 'POST', body: JSON.stringify({ password }),
+  login: (email: string, password: string) => request<{ token: string }>('/auth/login', {
+    method: 'POST', body: JSON.stringify({ email, password }),
   }),
+
+  register: (data: { email: string; password: string; businessName: string; phone: string }) =>
+    request<{ token: string; tenantId: string }>('/auth/register', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
 
   // Appointments
   getAppointments: (params?: { status?: string; from?: string; to?: string }) => {

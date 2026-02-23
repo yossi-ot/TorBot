@@ -2,10 +2,9 @@ import { Session } from '../session.js';
 import { db, schema } from '../../db/index.js';
 import { eq } from 'drizzle-orm';
 
-export function handleGreeting(session: Session): string {
-  const tenant = db.select().from(schema.tenants)
-    .where(eq(schema.tenants.id, session.tenantId))
-    .get();
+export async function handleGreeting(session: Session): Promise<string> {
+  const [tenant] = await db.select().from(schema.tenants)
+    .where(eq(schema.tenants.id, session.tenantId));
 
   const businessName = tenant?.name || 'העסק';
 

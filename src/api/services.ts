@@ -7,10 +7,9 @@ export function registerServiceRoutes(app: FastifyInstance) {
   // List all services
   app.get('/api/services', async (request) => {
     const tenantId = (request as any).tenantId;
-    return db.select().from(schema.services)
+    return await db.select().from(schema.services)
       .where(eq(schema.services.tenantId, tenantId))
-      .orderBy(schema.services.sortOrder)
-      .all();
+      .orderBy(schema.services.sortOrder);
   });
 
   // Create service
@@ -19,13 +18,14 @@ export function registerServiceRoutes(app: FastifyInstance) {
     const { name, durationMinutes, price, isActive, sortOrder } = request.body as any;
 
     const id = uuid();
-    db.insert(schema.services).values({
+    await db.insert(schema.services).values({
       id, tenantId, name, durationMinutes, price,
       isActive: isActive ?? true,
       sortOrder: sortOrder ?? 0,
-    }).run();
+    });
 
-    return db.select().from(schema.services).where(eq(schema.services.id, id)).get();
+    const [created] = await db.select().from(schema.services).where(eq(schema.services.id, id));
+    return created;
   });
 
   // Update service
@@ -34,9 +34,8 @@ export function registerServiceRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const body = request.body as any;
 
-    const existing = db.select().from(schema.services)
-      .where(and(eq(schema.services.id, id), eq(schema.services.tenantId, tenantId)))
-      .get();
+    const [existing] = await db.select().from(schema.services)
+      .where(and(eq(schema.services.id, id), eq(schema.services.tenantId, tenantId)));
 
     if (!existing) return reply.code(404).send({ error: 'Not found' });
 
@@ -47,9 +46,10 @@ export function registerServiceRoutes(app: FastifyInstance) {
     if (body.isActive !== undefined) updates.isActive = body.isActive;
     if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
 
-    db.update(schema.services).set(updates).where(eq(schema.services.id, id)).run();
+    await db.update(schema.services).set(updates).where(eq(schema.services.id, id));
 
-    return db.select().from(schema.services).where(eq(schema.services.id, id)).get();
+    const [updated] = await db.select().from(schema.services).where(eq(schema.services.id, id));
+    return updated;
   });
 
   // Delete service (soft delete)
@@ -57,13 +57,12 @@ export function registerServiceRoutes(app: FastifyInstance) {
     const tenantId = (request as any).tenantId;
     const { id } = request.params as { id: string };
 
-    const existing = db.select().from(schema.services)
-      .where(and(eq(schema.services.id, id), eq(schema.services.tenantId, tenantId)))
-      .get();
+    const [existing] = await db.select().from(schema.services)
+      .where(and(eq(schema.services.id, id), eq(schema.services.tenantId, tenantId)));
 
     if (!existing) return reply.code(404).send({ error: 'Not found' });
 
-    db.update(schema.services).set({ isActive: false }).where(eq(schema.services.id, id)).run();
+    await db.update(schema.services).set({ isActive: false }).where(eq(schema.services.id, id));
     return { ok: true };
   });
 }

@@ -6,13 +6,12 @@ import { createBooking, findOrCreateCustomer } from '../../scheduling/booking.js
 import { dayjs, formatDateHebrew, parseHebrewDate, parseHebrewTime } from '../../utils/date.js';
 
 /** Show list of services to choose from */
-export function startBooking(session: Session): string {
-  const services = db.select().from(schema.services)
+export async function startBooking(session: Session): Promise<string> {
+  const services = (await db.select().from(schema.services)
     .where(and(
       eq(schema.services.tenantId, session.tenantId),
       eq(schema.services.isActive, true),
-    ))
-    .all()
+    )))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   if (services.length === 0) {
@@ -29,13 +28,12 @@ export function startBooking(session: Session): string {
 }
 
 /** Handle service selection, show available dates */
-export function handleServiceSelection(session: Session, input: string): string {
-  const services = db.select().from(schema.services)
+export async function handleServiceSelection(session: Session, input: string): Promise<string> {
+  const services = (await db.select().from(schema.services)
     .where(and(
       eq(schema.services.tenantId, session.tenantId),
       eq(schema.services.isActive, true),
-    ))
-    .all()
+    )))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   // Match by number or name
@@ -59,7 +57,7 @@ export function handleServiceSelection(session: Session, input: string): string 
   });
 
   // Show available dates
-  const dates = getAvailableDates(session.tenantId, service.durationMinutes, 7);
+  const dates = await getAvailableDates(session.tenantId, service.durationMinutes, 7);
 
   if (dates.length === 0) {
     updateSession(session, { state: 'IDLE' });
@@ -75,9 +73,9 @@ export function handleServiceSelection(session: Session, input: string): string 
 }
 
 /** Handle date selection, show available time slots */
-export function handleDateSelection(session: Session, input: string): string {
-  const dates = getAvailableDates(session.tenantId,
-    getServiceDuration(session) || 30, 7);
+export async function handleDateSelection(session: Session, input: string): Promise<string> {
+  const dates = await getAvailableDates(session.tenantId,
+    await getServiceDuration(session) || 30, 7);
 
   let selectedDate: string | null = null;
 
@@ -89,9 +87,8 @@ export function handleDateSelection(session: Session, input: string): string {
 
   // Try Hebrew date parsing
   if (!selectedDate) {
-    const tenant = db.select().from(schema.tenants)
-      .where(eq(schema.tenants.id, session.tenantId))
-      .get();
+    const [tenant] = await db.select().from(schema.tenants)
+      .where(eq(schema.tenants.id, session.tenantId));
     const parsed = parseHebrewDate(input, tenant?.timezone || 'Asia/Jerusalem');
     if (parsed) {
       selectedDate = parsed.format('YYYY-MM-DD');
@@ -102,8 +99,8 @@ export function handleDateSelection(session: Session, input: string): string {
     return 'לא הבנתי את התאריך. בחר מספר מהרשימה או כתוב "מחר", "היום", או תאריך כמו 25/02:';
   }
 
-  const duration = getServiceDuration(session) || 30;
-  const slots = getAvailableSlots(session.tenantId, selectedDate, duration);
+  const duration = await getServiceDuration(session) || 30;
+  const slots = await getAvailableSlots(session.tenantId, selectedDate, duration);
 
   if (slots.length === 0) {
     return `אין תורים פנויים ב-${formatDateHebrew(dayjs(selectedDate))}. בחר תאריך אחר:`;
@@ -121,7 +118,7 @@ export function handleDateSelection(session: Session, input: string): string {
 }
 
 /** Handle time selection, show confirmation */
-export function handleTimeSelection(session: Session, input: string): string {
+export async function handleTimeSelection(session: Session, input: string): Promise<string> {
   const slots = session.availableSlots || [];
 
   let selectedTime: string | null = null;
@@ -159,7 +156,7 @@ export function handleTimeSelection(session: Session, input: string): string {
 }
 
 /** Handle booking confirmation */
-export function handleConfirmation(session: Session, input: string): string {
+export async function handleConfirmation(session: Session, input: string): Promise<string> {
   const positive = /^(כן|אישור|בטח|yes|1|אשר|מאשר)$/i.test(input.trim());
   const negative = /^(לא|ביטול|no|2|cancel)$/i.test(input.trim());
 
@@ -173,13 +170,13 @@ export function handleConfirmation(session: Session, input: string): string {
   }
 
   // Create the booking
-  const customerId = findOrCreateCustomer(
+  const customerId = await findOrCreateCustomer(
     session.tenantId,
     session.customerPhone,
     session.customerName || undefined,
   );
 
-  const result = createBooking(
+  const result = await createBooking(
     session.tenantId,
     customerId,
     session.selectedServiceId!,
@@ -204,10 +201,9 @@ export function handleConfirmation(session: Session, input: string): string {
 להתראות! 😊`;
 }
 
-function getServiceDuration(session: Session): number | null {
+async function getServiceDuration(session: Session): Promise<number | null> {
   if (!session.selectedServiceId) return null;
-  const service = db.select().from(schema.services)
-    .where(eq(schema.services.id, session.selectedServiceId))
-    .get();
+  const [service] = await db.select().from(schema.services)
+    .where(eq(schema.services.id, session.selectedServiceId));
   return service?.durationMinutes || null;
 }

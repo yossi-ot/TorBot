@@ -13,28 +13,27 @@ export interface BookingResult {
 /**
  * Create a new appointment with conflict checking.
  */
-export function createBooking(
+export async function createBooking(
   tenantId: string,
   customerId: string,
   serviceId: string,
   date: string,      // YYYY-MM-DD
   time: string,      // HH:mm
   staffId?: string,
-): BookingResult {
+): Promise<BookingResult> {
   // Get service to know duration
-  const service = db.select().from(schema.services)
+  const [service] = await db.select().from(schema.services)
     .where(and(
       eq(schema.services.id, serviceId),
       eq(schema.services.tenantId, tenantId),
-    ))
-    .get();
+    ));
 
   if (!service) {
     return { success: false, error: 'שירות לא נמצא' };
   }
 
   // Double-check availability (optimistic locking)
-  const slots = getAvailableSlots(tenantId, date, service.durationMinutes, staffId || undefined);
+  const slots = await getAvailableSlots(tenantId, date, service.durationMinutes, staffId || undefined);
   const slotExists = slots.some(s => s.time === time);
 
   if (!slotExists) {
@@ -47,7 +46,7 @@ export function createBooking(
 
   const appointmentId = uuid();
 
-  db.insert(schema.appointments).values({
+  await db.insert(schema.appointments).values({
     id: appointmentId,
     tenantId,
     customerId,
@@ -57,7 +56,7 @@ export function createBooking(
     endTime: endTime.format('YYYY-MM-DDTHH:mm:ss'),
     status: 'confirmed',
     source: 'whatsapp_bot',
-  }).run();
+  });
 
   return { success: true, appointmentId };
 }
@@ -65,26 +64,25 @@ export function createBooking(
 /**
  * Cancel an appointment.
  */
-export function cancelBooking(appointmentId: string, reason?: string): boolean {
-  const result = db.update(schema.appointments)
+export async function cancelBooking(appointmentId: string, reason?: string): Promise<boolean> {
+  const result = await db.update(schema.appointments)
     .set({
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
       cancellationReason: reason || 'ביטול ע"י הלקוח',
     })
-    .where(eq(schema.appointments.id, appointmentId))
-    .run();
+    .where(eq(schema.appointments.id, appointmentId));
 
-  return result.changes > 0;
+  return (result as any).rowCount > 0;
 }
 
 /**
  * Get upcoming appointments for a customer.
  */
-export function getCustomerAppointments(tenantId: string, customerId: string) {
+export async function getCustomerAppointments(tenantId: string, customerId: string) {
   const now = new Date().toISOString();
 
-  return db.select({
+  const rows = await db.select({
     id: schema.appointments.id,
     startTime: schema.appointments.startTime,
     endTime: schema.appointments.endTime,
@@ -97,40 +95,38 @@ export function getCustomerAppointments(tenantId: string, customerId: string) {
       eq(schema.appointments.tenantId, tenantId),
       eq(schema.appointments.customerId, customerId),
       eq(schema.appointments.status, 'confirmed'),
-    ))
-    .all()
-    .filter(a => a.startTime > now);
+    ));
+
+  return rows.filter(a => a.startTime > now);
 }
 
 /**
  * Find or create a customer by phone number.
  */
-export function findOrCreateCustomer(tenantId: string, phone: string, name?: string): string {
-  const existing = db.select().from(schema.customers)
+export async function findOrCreateCustomer(tenantId: string, phone: string, name?: string): Promise<string> {
+  const [existing] = await db.select().from(schema.customers)
     .where(and(
       eq(schema.customers.tenantId, tenantId),
       eq(schema.customers.phone, phone),
-    ))
-    .get();
+    ));
 
   if (existing) {
     // Update name if provided and not set
     if (name && !existing.name) {
-      db.update(schema.customers)
+      await db.update(schema.customers)
         .set({ name })
-        .where(eq(schema.customers.id, existing.id))
-        .run();
+        .where(eq(schema.customers.id, existing.id));
     }
     return existing.id;
   }
 
   const id = uuid();
-  db.insert(schema.customers).values({
+  await db.insert(schema.customers).values({
     id,
     tenantId,
     phone,
     name: name || null,
-  }).run();
+  });
 
   return id;
 }

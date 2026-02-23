@@ -8,16 +8,15 @@ export function registerCalendarRoutes(app: FastifyInstance) {
     const { tenantId, token } = request.params as { tenantId: string; token: string };
 
     // Validate tenant exists (token = tenantId for simplicity in MVP)
-    const tenant = db.select().from(schema.tenants)
-      .where(eq(schema.tenants.id, tenantId))
-      .get();
+    const [tenant] = await db.select().from(schema.tenants)
+      .where(eq(schema.tenants.id, tenantId));
 
     if (!tenant) {
       return reply.code(404).send('Not found');
     }
 
     // Get all confirmed appointments
-    const appointments = db.select({
+    const appointments = await db.select({
       id: schema.appointments.id,
       startTime: schema.appointments.startTime,
       endTime: schema.appointments.endTime,
@@ -31,8 +30,7 @@ export function registerCalendarRoutes(app: FastifyInstance) {
       .where(and(
         eq(schema.appointments.tenantId, tenantId),
         eq(schema.appointments.status, 'confirmed'),
-      ))
-      .all();
+      ));
 
     // Generate iCal
     const calendar: ICalCalendar = ical({
