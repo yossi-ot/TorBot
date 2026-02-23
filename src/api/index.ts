@@ -6,6 +6,7 @@ import { registerServiceRoutes } from './services.js';
 import { registerWorkingHoursRoutes } from './working-hours.js';
 import { registerBlockedSlotRoutes } from './blocked-slots.js';
 import { registerStatsRoutes } from './stats.js';
+import { registerAdminRoutes } from './admin.js';
 
 export function registerApiRoutes(app: FastifyInstance) {
   // Auth routes (no JWT required)
@@ -13,7 +14,7 @@ export function registerApiRoutes(app: FastifyInstance) {
 
   // Protect all other /api/ routes with JWT
   app.addHook('onRequest', async (request, reply) => {
-    if (request.url === '/api/auth/login') return;
+    if (request.url === '/api/auth/login' || request.url === '/api/auth/register') return;
     if (!request.url.startsWith('/api/')) return;
     await authMiddleware(request, reply);
   });
@@ -23,4 +24,5 @@ export function registerApiRoutes(app: FastifyInstance) {
   registerWorkingHoursRoutes(app);
   registerBlockedSlotRoutes(app);
   registerStatsRoutes(app);
+  registerAdminRoutes(app);
 }

@@ -77,6 +77,9 @@ export const api = {
   createBlockedSlot: (data: any) => request<any>('/blocked-slots', { method: 'POST', body: JSON.stringify(data) }),
   deleteBlockedSlot: (id: string) => request<{ ok: boolean }>(`/blocked-slots/${id}`, { method: 'DELETE' }),
 
+  // Admin
+  getTenants: () => request<any[]>('/admin/tenants'),
+
   // Stats
   getStats: (params?: { from?: string; to?: string }) => {
     const qs = new URLSearchParams();

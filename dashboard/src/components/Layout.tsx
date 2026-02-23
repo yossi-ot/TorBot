@@ -6,6 +6,7 @@ const navItems = [
   { to: '/services', label: 'שירותים', icon: '✂️' },
   { to: '/working-hours', label: 'שעות פעילות', icon: '🕐' },
   { to: '/stats', label: 'סטטיסטיקות', icon: '📊' },
+  { to: '/admin', label: 'ניהול עסקים', icon: '🏢' },
 ];
 
 export default function Layout() {
