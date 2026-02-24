@@ -12,7 +12,9 @@ RUN cd dashboard && npm ci
 
 COPY . .
 
-# Build dashboard
+# Build dashboard (VITE_ vars must be available at build time)
+ARG VITE_META_APP_ID
+ARG VITE_META_CONFIG_ID
 RUN cd dashboard && npm run build
 
 EXPOSE 3000
