@@ -15,7 +15,9 @@ COPY . .
 # Build dashboard (VITE_ vars must be available at build time)
 ARG VITE_META_APP_ID
 ARG VITE_META_CONFIG_ID
-RUN cd dashboard && npm run build
+RUN printf "VITE_META_APP_ID=%s\nVITE_META_CONFIG_ID=%s\n" \
+    "$VITE_META_APP_ID" "$VITE_META_CONFIG_ID" > dashboard/.env && \
+    cd dashboard && npm run build
 
 EXPOSE 3000
 
