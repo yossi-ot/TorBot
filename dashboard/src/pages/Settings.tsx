@@ -150,6 +150,7 @@ export default function Settings() {
     window.__wabaSignupData = undefined;
 
     log(`Calling FB.login with config_id=${metaConfigRef.current.configId}`);
+    try {
     window.FB.login(
       async (response: any) => {
         log(`FB.login callback fired. authResponse=${!!response.authResponse}`);
@@ -205,6 +206,11 @@ export default function Settings() {
         },
       }
     );
+    log('FB.login called (no error thrown)');
+    } catch (err: any) {
+      log(`FB.login ERROR: ${err.message}`);
+      setConnecting(false);
+    }
   }, []);
 
   const handleDisconnect = async () => {
@@ -308,6 +314,16 @@ export default function Settings() {
               className="bg-[#1877F2] text-white px-5 py-2.5 rounded-lg font-medium hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
             >
               {connecting ? 'מתחבר...' : 'חבר עם Facebook'}
+            </button>
+            <button
+              onClick={() => {
+                const w = window.open('https://www.facebook.com', '_blank');
+                log(`Popup test: ${w ? 'OPENED' : 'BLOCKED'}`);
+                if (w) w.close();
+              }}
+              className="text-xs text-gray-400 underline mr-4 mt-2"
+            >
+              [Test Popup]
             </button>
             {!fbReady && (
               <p className="text-xs text-gray-400 mt-2">טוען Facebook SDK...</p>
