@@ -12,10 +12,10 @@ RUN cd dashboard && npm ci
 
 COPY . .
 
-# Pre-build dashboard (will be rebuilt at startup with env vars)
+# Build dashboard
 RUN cd dashboard && npm run build
 
 EXPOSE 3000
 
-# Build dashboard with env vars, push schema, seed, then start server
-CMD ["sh", "-c", "printf 'VITE_META_APP_ID=%s\\nVITE_META_CONFIG_ID=%s\\n' \"$VITE_META_APP_ID\" \"$VITE_META_CONFIG_ID\" > dashboard/.env && cd dashboard && npm run build && cd /app && npx drizzle-kit push && npx tsx src/db/seed.ts && npx tsx src/index.ts"]
+# Push schema to DB, seed demo data, then start server
+CMD ["sh", "-c", "npx drizzle-kit push && npx tsx src/db/seed.ts && npx tsx src/index.ts"]

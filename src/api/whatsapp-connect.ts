@@ -4,6 +4,14 @@ import { eq } from 'drizzle-orm';
 import { config } from '../config.js';
 
 export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
+  // Return Meta app config for frontend SDK initialization
+  app.get('/api/whatsapp/config', async () => {
+    return {
+      appId: config.meta.appId,
+      configId: config.meta.configId,
+    };
+  });
+
   // Exchange Embedded Signup code for token and save credentials
   app.post('/api/whatsapp/connect', async (request, reply) => {
     const tenantId = (request as any).tenantId;

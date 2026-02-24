@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api';
 
 declare global {
@@ -37,38 +37,45 @@ export default function Settings() {
   const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [fbReady, setFbReady] = useState(false);
+  const metaConfigRef = useRef<{ appId: string; configId: string } | null>(null);
 
-  // Initialize Facebook SDK
+  // Fetch Meta config from backend and initialize Facebook SDK
   useEffect(() => {
-    const initFB = () => {
-      if (fbReady) return;
-      window.FB.init({
-        appId: import.meta.env.VITE_META_APP_ID,
-        autoLogAppEvents: true,
-        xfbml: false,
-        version: 'v21.0',
-      });
-      setFbReady(true);
-    };
+    let interval: ReturnType<typeof setInterval> | undefined;
 
-    // If SDK already loaded
-    if (window.FB) {
-      initFB();
-      return;
-    }
+    api.getWhatsAppConfig().then((cfg) => {
+      metaConfigRef.current = cfg;
 
-    // Set callback for when SDK loads
-    window.fbAsyncInit = initFB;
+      const initFB = () => {
+        if (!window.FB) return;
+        window.FB.init({
+          appId: cfg.appId,
+          autoLogAppEvents: true,
+          xfbml: false,
+          version: 'v21.0',
+        });
+        setFbReady(true);
+      };
 
-    // Poll as fallback in case fbAsyncInit was missed
-    const interval = setInterval(() => {
       if (window.FB) {
-        clearInterval(interval);
         initFB();
+        return;
       }
-    }, 500);
 
-    return () => clearInterval(interval);
+      window.fbAsyncInit = initFB;
+
+      // Poll as fallback
+      interval = setInterval(() => {
+        if (window.FB) {
+          clearInterval(interval);
+          initFB();
+        }
+      }, 500);
+    }).catch((err) => {
+      console.error('Failed to load Meta config:', err);
+    });
+
+    return () => { if (interval) clearInterval(interval); };
   }, []);
 
   // Listen for Embedded Signup message event
@@ -120,7 +127,7 @@ export default function Settings() {
   };
 
   const launchEmbeddedSignup = useCallback(() => {
-    if (!window.FB) return;
+    if (!window.FB || !metaConfigRef.current) return;
     setConnecting(true);
     setMessage(null);
     window.__wabaSignupData = undefined;
@@ -169,7 +176,7 @@ export default function Settings() {
         }
       },
       {
-        config_id: import.meta.env.VITE_META_CONFIG_ID,
+        config_id: metaConfigRef.current.configId,
         response_type: 'code',
         override_default_response_type: true,
         extras: {
