@@ -19,6 +19,7 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       code: string;
       wabaId?: string;
       phoneNumberId?: string;
+      redirectUri?: string;
     };
 
     if (!body.code) {
@@ -27,9 +28,11 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
 
     try {
       // 1. Exchange code for short-lived token
+      const redirectUri = body.redirectUri || `https://${request.hostname}/`;
       const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token` +
         `?client_id=${config.meta.appId}` +
         `&client_secret=${config.meta.appSecret}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&code=${body.code}`;
 
       console.log('Token exchange URL (without secret):', tokenUrl.replace(config.meta.appSecret, '***'));

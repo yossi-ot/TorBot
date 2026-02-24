@@ -181,6 +181,7 @@ export default function Settings() {
             code,
             wabaId: signupData?.wabaId || '',
             phoneNumberId: signupData?.phoneNumberId || '',
+            redirectUri: window.location.origin + '/',
           }).then((res: any) => {
             setWaStatus({
               connected: true,
