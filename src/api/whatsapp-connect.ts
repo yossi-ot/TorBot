@@ -108,29 +108,33 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
           }
         }
 
-        // Get phone numbers for the discovered WABA
+        // Get phone numbers - retry a few times as provisioning can take a moment
         if (wabaId && !phoneNumberId) {
-          const phonesRes = await fetch(
-            `https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?fields=id,display_phone_number`,
-            { headers: { 'Authorization': `Bearer ${longLivedToken}` } }
-          );
-          if (phonesRes.ok) {
-            const phones = await phonesRes.json() as { data: { id: string; display_phone_number: string }[] };
-            dlog(`Phones: ${JSON.stringify(phones.data || [])}`);
-            if (phones.data?.length) {
-              phoneNumberId = phones.data[0].id;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+            const phonesRes = await fetch(
+              `https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?fields=id,display_phone_number`,
+              { headers: { 'Authorization': `Bearer ${longLivedToken}` } }
+            );
+            if (phonesRes.ok) {
+              const phones = await phonesRes.json() as { data: { id: string; display_phone_number: string }[] };
+              dlog(`Phones attempt ${attempt + 1}: ${JSON.stringify(phones.data || [])}`);
+              if (phones.data?.length) {
+                phoneNumberId = phones.data[0].id;
+                break;
+              }
+            } else {
+              dlog(`phones attempt ${attempt + 1} failed: ${await phonesRes.text()}`);
             }
-          } else {
-            dlog(`phones failed: ${await phonesRes.text()}`);
           }
         }
 
-        if (!wabaId || !phoneNumberId) {
+        if (!wabaId) {
           return reply.code(400).send({ error: `Discovery failed | ${diag.join(' | ')}` });
         }
       }
 
-      // 4. Subscribe WABA to app webhook
+      // Subscribe WABA to app webhook
       const subscribeRes = await fetch(
         `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`,
         {
@@ -142,32 +146,34 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
         console.error('Webhook subscription failed:', await subscribeRes.text());
       }
 
-      // 5. Register phone number for Cloud API
-      const registerRes = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/register`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${longLivedToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ messaging_product: 'whatsapp', pin: '000000' }),
+      // Register phone number for Cloud API (if we found one)
+      if (phoneNumberId) {
+        const registerRes = await fetch(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}/register`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${longLivedToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ messaging_product: 'whatsapp', pin: '000000' }),
+          }
+        );
+        if (!registerRes.ok) {
+          console.error('Phone registration:', await registerRes.text());
         }
-      );
-      if (!registerRes.ok) {
-        console.error('Phone registration:', await registerRes.text());
       }
 
-      // 6. Save credentials to tenant
+      // Save credentials to tenant (even without phone - can be completed later)
       await db.update(schema.tenants)
         .set({
           wabaId,
-          whatsappPhoneNumberId: phoneNumberId,
+          whatsappPhoneNumberId: phoneNumberId || '',
           whatsappAccessToken: longLivedToken,
         })
         .where(eq(schema.tenants.id, tenantId));
 
-      return { ok: true, wabaId, phoneNumberId };
+      return { ok: true, wabaId, phoneNumberId, phonePending: !phoneNumberId };
     } catch (err: any) {
       console.error('WhatsApp connect error:', err);
       return reply.code(500).send({ error: err.message || 'Connection failed' });
@@ -180,15 +186,39 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
     const [tenant] = await db.select({
       phoneNumberId: schema.tenants.whatsappPhoneNumberId,
       wabaId: schema.tenants.wabaId,
+      accessToken: schema.tenants.whatsappAccessToken,
     }).from(schema.tenants)
       .where(eq(schema.tenants.id, tenantId));
 
     if (!tenant) return { connected: false };
 
+    const hasWaba = !!(tenant.wabaId && tenant.wabaId.length > 0);
+    const hasPhone = !!(tenant.phoneNumberId && tenant.phoneNumberId.length > 0);
+
+    // If we have WABA but no phone, try to discover it now
+    if (hasWaba && !hasPhone && tenant.accessToken) {
+      const phonesRes = await fetch(
+        `https://graph.facebook.com/v21.0/${tenant.wabaId}/phone_numbers?fields=id,display_phone_number`,
+        { headers: { 'Authorization': `Bearer ${tenant.accessToken}` } }
+      );
+      if (phonesRes.ok) {
+        const phones = await phonesRes.json() as { data: { id: string; display_phone_number: string }[] };
+        if (phones.data?.length) {
+          const phoneId = phones.data[0].id;
+          await db.update(schema.tenants)
+            .set({ whatsappPhoneNumberId: phoneId })
+            .where(eq(schema.tenants.id, tenantId));
+          return { connected: true, phoneNumberId: phoneId, wabaId: tenant.wabaId, phonePending: false };
+        }
+      }
+      return { connected: false, phoneNumberId: null, wabaId: tenant.wabaId, phonePending: true };
+    }
+
     return {
-      connected: !!(tenant.phoneNumberId && tenant.phoneNumberId.length > 0),
+      connected: hasPhone,
       phoneNumberId: tenant.phoneNumberId || null,
       wabaId: tenant.wabaId || null,
+      phonePending: hasWaba && !hasPhone,
     };
   });
 

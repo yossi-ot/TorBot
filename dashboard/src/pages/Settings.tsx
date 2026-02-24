@@ -183,11 +183,15 @@ export default function Settings() {
             phoneNumberId: signupData?.phoneNumberId || '',
           }).then((res: any) => {
             setWaStatus({
-              connected: true,
+              connected: !res.phonePending,
               phoneNumberId: res.phoneNumberId || signupData?.phoneNumberId || '',
               wabaId: res.wabaId || signupData?.wabaId || '',
             });
-            setMessage({ type: 'success', text: 'WhatsApp חובר בהצלחה!' });
+            if (res.phonePending) {
+              setMessage({ type: 'success', text: 'WABA חובר! ממתין לרישום מספר טלפון...' });
+            } else {
+              setMessage({ type: 'success', text: 'WhatsApp חובר בהצלחה!' });
+            }
           }).catch((err: any) => {
             log(`Connect error: ${err.message}`);
             setMessage({ type: 'error', text: err.message || 'שגיאה בחיבור WhatsApp' });
@@ -305,6 +309,44 @@ export default function Settings() {
             >
               נתק WhatsApp
             </button>
+          </div>
+        ) : waStatus?.wabaId ? (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+              <span className="text-sm text-yellow-700 font-medium">WABA מחובר - ממתין למספר טלפון</span>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <p className="text-sm text-gray-500" dir="ltr">
+                <span className="text-gray-400">WABA ID:</span> {waStatus.wabaId}
+              </p>
+            </div>
+            <p className="text-sm text-gray-500 mb-3">
+              מספר הטלפון עדיין בתהליך רישום. לחץ לבדוק שוב, או נתק וחבר מחדש.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  api.getWhatsAppStatus().then((s) => {
+                    setWaStatus(s);
+                    if (s.connected) {
+                      setMessage({ type: 'success', text: 'מספר טלפון נמצא! WhatsApp מחובר.' });
+                    } else {
+                      setMessage({ type: 'error', text: 'מספר טלפון עדיין לא זמין. נסה שוב מאוחר יותר.' });
+                    }
+                  });
+                }}
+                className="bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors"
+              >
+                בדוק שוב
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="text-sm text-red-500 hover:text-red-700 transition-colors py-2"
+              >
+                נתק
+              </button>
+            </div>
           </div>
         ) : (
           <div>
