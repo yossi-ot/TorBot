@@ -40,7 +40,8 @@ export default function Settings() {
 
   // Initialize Facebook SDK
   useEffect(() => {
-    window.fbAsyncInit = function () {
+    const initFB = () => {
+      if (fbReady) return;
       window.FB.init({
         appId: import.meta.env.VITE_META_APP_ID,
         autoLogAppEvents: true,
@@ -49,16 +50,25 @@ export default function Settings() {
       });
       setFbReady(true);
     };
+
     // If SDK already loaded
     if (window.FB) {
-      window.FB.init({
-        appId: import.meta.env.VITE_META_APP_ID,
-        autoLogAppEvents: true,
-        xfbml: false,
-        version: 'v21.0',
-      });
-      setFbReady(true);
+      initFB();
+      return;
     }
+
+    // Set callback for when SDK loads
+    window.fbAsyncInit = initFB;
+
+    // Poll as fallback in case fbAsyncInit was missed
+    const interval = setInterval(() => {
+      if (window.FB) {
+        clearInterval(interval);
+        initFB();
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Listen for Embedded Signup message event
