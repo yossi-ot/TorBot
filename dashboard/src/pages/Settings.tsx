@@ -152,7 +152,7 @@ export default function Settings() {
     log(`Calling FB.login with config_id=${metaConfigRef.current.configId}`);
     try {
     window.FB.login(
-      async (response: any) => {
+      function (response: any) {
         log(`FB.login callback fired. authResponse=${!!response.authResponse}`);
         if (!response.authResponse) {
           setConnecting(false);
@@ -161,39 +161,46 @@ export default function Settings() {
         }
 
         const code = response.authResponse.code;
+        log(`Got code: ${code.substring(0, 20)}...`);
 
-        // Wait briefly for message event if not yet received
-        let attempts = 0;
-        while (!window.__wabaSignupData && attempts < 20) {
-          await new Promise((r) => setTimeout(r, 250));
-          attempts++;
-        }
-
-        const signupData = window.__wabaSignupData;
-        if (!signupData) {
-          setConnecting(false);
-          setMessage({ type: 'error', text: 'לא התקבלו נתוני WhatsApp Business' });
-          return;
-        }
-
-        try {
-          await api.connectWhatsApp({
-            code,
-            wabaId: signupData.wabaId,
-            phoneNumberId: signupData.phoneNumberId,
-          });
-          setWaStatus({
-            connected: true,
-            phoneNumberId: signupData.phoneNumberId,
-            wabaId: signupData.wabaId,
-          });
-          setMessage({ type: 'success', text: 'WhatsApp חובר בהצלחה!' });
-        } catch (err: any) {
-          setMessage({ type: 'error', text: err.message || 'שגיאה בחיבור WhatsApp' });
-        } finally {
-          setConnecting(false);
-          window.__wabaSignupData = undefined;
-        }
+        // Wait for message event with WABA data, then send to backend
+        const waitForSignupData = () => {
+          let attempts = 0;
+          const check = () => {
+            if (window.__wabaSignupData) {
+              const signupData = window.__wabaSignupData;
+              log(`Got signup data: wabaId=${signupData.wabaId}, phoneNumberId=${signupData.phoneNumberId}`);
+              api.connectWhatsApp({
+                code,
+                wabaId: signupData.wabaId,
+                phoneNumberId: signupData.phoneNumberId,
+              }).then(() => {
+                setWaStatus({
+                  connected: true,
+                  phoneNumberId: signupData.phoneNumberId,
+                  wabaId: signupData.wabaId,
+                });
+                setMessage({ type: 'success', text: 'WhatsApp חובר בהצלחה!' });
+              }).catch((err: any) => {
+                setMessage({ type: 'error', text: err.message || 'שגיאה בחיבור WhatsApp' });
+              }).finally(() => {
+                setConnecting(false);
+                window.__wabaSignupData = undefined;
+              });
+              return;
+            }
+            attempts++;
+            if (attempts >= 20) {
+              log('Timeout waiting for signup data');
+              setConnecting(false);
+              setMessage({ type: 'error', text: 'לא התקבלו נתוני WhatsApp Business' });
+              return;
+            }
+            setTimeout(check, 250);
+          };
+          check();
+        };
+        waitForSignupData();
       },
       {
         config_id: metaConfigRef.current.configId,
