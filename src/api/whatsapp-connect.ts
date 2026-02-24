@@ -12,52 +12,36 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
     };
   });
 
-  // Exchange Embedded Signup code for token and save credentials
+  // Accept short-lived token from Embedded Signup and save credentials
   app.post('/api/whatsapp/connect', async (request, reply) => {
     const tenantId = (request as any).tenantId;
     const body = request.body as {
-      code: string;
+      accessToken: string;
       wabaId?: string;
       phoneNumberId?: string;
-      redirectUri?: string;
     };
 
-    if (!body.code) {
-      return reply.code(400).send({ error: 'Missing code' });
+    if (!body.accessToken) {
+      return reply.code(400).send({ error: 'Missing access token' });
     }
 
     try {
-      // 1. Exchange code for short-lived token
-      const redirectUri = body.redirectUri || `https://${request.hostname}/`;
-      const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token` +
-        `?client_id=${config.meta.appId}` +
-        `&client_secret=${config.meta.appSecret}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&code=${body.code}`;
-
-      console.log('Token exchange URL (without secret):', tokenUrl.replace(config.meta.appSecret, '***'));
-      const tokenRes = await fetch(tokenUrl);
-      if (!tokenRes.ok) {
-        const err = await tokenRes.text();
-        console.error('Token exchange failed:', err);
-        return reply.code(400).send({ error: `Token exchange failed: ${err}` });
-      }
-      const { access_token: shortLivedToken } = await tokenRes.json() as { access_token: string };
-
-      // 2. Exchange for long-lived token (60 days)
+      // 1. Exchange short-lived token for long-lived token (60 days)
       const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token` +
         `?grant_type=fb_exchange_token` +
         `&client_id=${config.meta.appId}` +
         `&client_secret=${config.meta.appSecret}` +
-        `&fb_exchange_token=${shortLivedToken}`;
+        `&fb_exchange_token=${body.accessToken}`;
 
+      console.log('Exchanging for long-lived token...');
       const longLivedRes = await fetch(longLivedUrl);
       if (!longLivedRes.ok) {
         const err = await longLivedRes.text();
         console.error('Long-lived token exchange failed:', err);
-        return reply.code(400).send({ error: 'Failed to get long-lived token' });
+        return reply.code(400).send({ error: `Long-lived token exchange failed: ${err}` });
       }
       const { access_token: longLivedToken } = await longLivedRes.json() as { access_token: string };
+      console.log('Got long-lived token');
 
       // 3. Discover WABA and phone number if not provided by frontend
       let wabaId = body.wabaId || '';

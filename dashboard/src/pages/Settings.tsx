@@ -161,8 +161,8 @@ export default function Settings() {
           return;
         }
 
-        const code = response.authResponse.code;
-        log(`Got code: ${code.substring(0, 20)}...`);
+        const accessToken = response.authResponse.accessToken;
+        log(`Got token: ${accessToken.substring(0, 20)}...`);
 
         // Try to get WABA data from message event, but don't require it
         const sendToBackend = (attempts: number) => {
@@ -178,10 +178,9 @@ export default function Settings() {
           }
 
           api.connectWhatsApp({
-            code,
+            accessToken,
             wabaId: signupData?.wabaId || '',
             phoneNumberId: signupData?.phoneNumberId || '',
-            redirectUri: window.location.origin + '/',
           }).then((res: any) => {
             setWaStatus({
               connected: true,
@@ -201,7 +200,7 @@ export default function Settings() {
       },
       {
         config_id: metaConfigRef.current.configId,
-        response_type: 'code',
+        response_type: 'token',
         override_default_response_type: true,
         extras: {
           setup: {},
