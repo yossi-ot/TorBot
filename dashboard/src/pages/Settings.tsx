@@ -37,42 +37,55 @@ export default function Settings() {
   const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [fbReady, setFbReady] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   const metaConfigRef = useRef<{ appId: string; configId: string } | null>(null);
+
+  const log = (msg: string) => {
+    console.log('[WA Debug]', msg);
+    setDebugLog((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
 
   // Fetch Meta config from backend and initialize Facebook SDK
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
 
+    log('Fetching /api/whatsapp/config...');
     api.getWhatsAppConfig().then((cfg) => {
+      log(`Config received: appId=${cfg.appId}, configId=${cfg.configId}`);
       metaConfigRef.current = cfg;
 
       const initFB = () => {
         if (!window.FB) return;
+        log('Calling FB.init...');
         window.FB.init({
           appId: cfg.appId,
           autoLogAppEvents: true,
           xfbml: false,
           version: 'v21.0',
         });
+        log('FB.init done, SDK ready');
         setFbReady(true);
       };
 
       if (window.FB) {
+        log('window.FB already exists');
         initFB();
         return;
       }
 
+      log('window.FB not found, setting fbAsyncInit + polling');
       window.fbAsyncInit = initFB;
 
       // Poll as fallback
       interval = setInterval(() => {
         if (window.FB) {
           clearInterval(interval);
+          log('window.FB found via polling');
           initFB();
         }
       }, 500);
     }).catch((err) => {
-      console.error('Failed to load Meta config:', err);
+      log(`Config fetch FAILED: ${err.message}`);
     });
 
     return () => { if (interval) clearInterval(interval); };
@@ -127,13 +140,19 @@ export default function Settings() {
   };
 
   const launchEmbeddedSignup = useCallback(() => {
-    if (!window.FB || !metaConfigRef.current) return;
+    log(`Button clicked. FB=${!!window.FB}, config=${!!metaConfigRef.current}`);
+    if (!window.FB || !metaConfigRef.current) {
+      log('Aborting: FB or config missing');
+      return;
+    }
     setConnecting(true);
     setMessage(null);
     window.__wabaSignupData = undefined;
 
+    log(`Calling FB.login with config_id=${metaConfigRef.current.configId}`);
     window.FB.login(
       async (response: any) => {
+        log(`FB.login callback fired. authResponse=${!!response.authResponse}`);
         if (!response.authResponse) {
           setConnecting(false);
           setMessage({ type: 'error', text: 'החיבור בוטל' });
@@ -323,6 +342,14 @@ export default function Settings() {
           </div>
         </div>
       </section>
+
+      {/* Debug Log */}
+      {debugLog.length > 0 && (
+        <section className="bg-gray-900 text-green-400 rounded-xl p-4 mb-4 font-mono text-xs max-h-48 overflow-y-auto" dir="ltr">
+          <h3 className="text-gray-500 mb-2">Debug Log:</h3>
+          {debugLog.map((line, i) => <div key={i}>{line}</div>)}
+        </section>
+      )}
 
       {/* Save */}
       <div className="flex items-center gap-4">
