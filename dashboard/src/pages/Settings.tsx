@@ -49,6 +49,7 @@ export default function Settings() {
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
 
+    log('=== Settings v2 (auto-discover) ===');
     log('Fetching /api/whatsapp/config...');
     api.getWhatsAppConfig().then((cfg) => {
       log(`Config received: appId=${cfg.appId}, configId=${cfg.configId}`);
