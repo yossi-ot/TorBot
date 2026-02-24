@@ -81,6 +81,12 @@ export const api = {
   getSettings: () => request<any>('/settings'),
   updateSettings: (data: any) => request<{ ok: boolean }>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
 
+  // WhatsApp Embedded Signup
+  connectWhatsApp: (data: { code: string; wabaId: string; phoneNumberId: string }) =>
+    request<{ ok: boolean }>('/whatsapp/connect', { method: 'POST', body: JSON.stringify(data) }),
+  getWhatsAppStatus: () => request<{ connected: boolean; phoneNumberId: string | null; wabaId: string | null }>('/whatsapp/status'),
+  disconnectWhatsApp: () => request<{ ok: boolean }>('/whatsapp/disconnect', { method: 'POST' }),
+
   // Admin
   getTenants: () => request<any[]>('/admin/tenants'),
 

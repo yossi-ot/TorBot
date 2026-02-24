@@ -24,13 +24,7 @@ async function seed() {
     .where(eq(schema.tenants.id, tenantId));
 
   if (existing) {
-    if (process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.WHATSAPP_ACCESS_TOKEN) {
-      await db.update(schema.tenants).set({
-        whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || existing.whatsappPhoneNumberId,
-        whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || existing.whatsappAccessToken,
-      }).where(eq(schema.tenants.id, tenantId));
-    }
-    console.log('Database already seeded. Updated tokens from .env.');
+    console.log('Database already seeded.');
     await pool.end();
     process.exit(0);
   }
@@ -40,8 +34,8 @@ async function seed() {
     id: tenantId,
     name: 'מספרת שרה',
     phone: '0501234567',
-    whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || 'test_phone_id',
-    whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || 'test_access_token',
+    whatsappPhoneNumberId: '',
+    whatsappAccessToken: '',
     timezone: 'Asia/Jerusalem',
     address: 'דיזנגוף 99, תל אביב',
     cancellationPolicy: 'ביטול עד 2 שעות לפני התור',

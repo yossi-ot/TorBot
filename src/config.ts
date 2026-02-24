@@ -5,8 +5,11 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || 'postgresql://localhost:5432/torbot',
   whatsapp: {
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-    accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+  },
+  meta: {
+    appId: process.env.META_APP_ID || '',
+    appSecret: process.env.META_APP_SECRET || '',
+    configId: process.env.META_CONFIG_ID || '',
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY || '',

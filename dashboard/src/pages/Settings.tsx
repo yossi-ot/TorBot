@@ -1,20 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
+
+declare global {
+  interface Window {
+    FB: any;
+    fbAsyncInit: () => void;
+    __wabaSignupData?: { wabaId: string; phoneNumberId: string };
+  }
+}
 
 interface TenantSettings {
   name: string;
   phone: string;
   address: string;
   timezone: string;
-  whatsappPhoneNumberId: string;
-  whatsappAccessToken: string;
   aiSystemPrompt: string;
   cancellationPolicy: string;
 }
 
+interface WhatsAppStatus {
+  connected: boolean;
+  phoneNumberId: string | null;
+  wabaId: string | null;
+}
+
 const emptySettings: TenantSettings = {
   name: '', phone: '', address: '', timezone: 'Asia/Jerusalem',
-  whatsappPhoneNumberId: '', whatsappAccessToken: '',
   aiSystemPrompt: '', cancellationPolicy: '',
 };
 
@@ -23,11 +34,59 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [showToken, setShowToken] = useState(false);
+  const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [fbReady, setFbReady] = useState(false);
 
+  // Initialize Facebook SDK
   useEffect(() => {
-    api.getSettings()
-      .then((data) => setForm(data))
+    window.fbAsyncInit = function () {
+      window.FB.init({
+        appId: import.meta.env.VITE_META_APP_ID,
+        autoLogAppEvents: true,
+        xfbml: false,
+        version: 'v21.0',
+      });
+      setFbReady(true);
+    };
+    // If SDK already loaded
+    if (window.FB) {
+      window.FB.init({
+        appId: import.meta.env.VITE_META_APP_ID,
+        autoLogAppEvents: true,
+        xfbml: false,
+        version: 'v21.0',
+      });
+      setFbReady(true);
+    }
+  }, []);
+
+  // Listen for Embedded Signup message event
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') return;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
+          window.__wabaSignupData = {
+            wabaId: data.data.waba_id,
+            phoneNumberId: data.data.phone_number_id,
+          };
+        }
+      } catch {
+        // Ignore non-JSON messages
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Load settings + WhatsApp status
+  useEffect(() => {
+    Promise.all([
+      api.getSettings().then(setForm),
+      api.getWhatsAppStatus().then(setWaStatus),
+    ])
       .catch(() => setMessage({ type: 'error', text: 'שגיאה בטעינת ההגדרות' }))
       .finally(() => setLoading(false));
   }, []);
@@ -47,6 +106,79 @@ export default function Settings() {
       setMessage({ type: 'error', text: err.message || 'שגיאה בשמירה' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const launchEmbeddedSignup = useCallback(() => {
+    if (!window.FB) return;
+    setConnecting(true);
+    setMessage(null);
+    window.__wabaSignupData = undefined;
+
+    window.FB.login(
+      async (response: any) => {
+        if (!response.authResponse) {
+          setConnecting(false);
+          setMessage({ type: 'error', text: 'החיבור בוטל' });
+          return;
+        }
+
+        const code = response.authResponse.code;
+
+        // Wait briefly for message event if not yet received
+        let attempts = 0;
+        while (!window.__wabaSignupData && attempts < 20) {
+          await new Promise((r) => setTimeout(r, 250));
+          attempts++;
+        }
+
+        const signupData = window.__wabaSignupData;
+        if (!signupData) {
+          setConnecting(false);
+          setMessage({ type: 'error', text: 'לא התקבלו נתוני WhatsApp Business' });
+          return;
+        }
+
+        try {
+          await api.connectWhatsApp({
+            code,
+            wabaId: signupData.wabaId,
+            phoneNumberId: signupData.phoneNumberId,
+          });
+          setWaStatus({
+            connected: true,
+            phoneNumberId: signupData.phoneNumberId,
+            wabaId: signupData.wabaId,
+          });
+          setMessage({ type: 'success', text: 'WhatsApp חובר בהצלחה!' });
+        } catch (err: any) {
+          setMessage({ type: 'error', text: err.message || 'שגיאה בחיבור WhatsApp' });
+        } finally {
+          setConnecting(false);
+          window.__wabaSignupData = undefined;
+        }
+      },
+      {
+        config_id: import.meta.env.VITE_META_CONFIG_ID,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: '',
+          sessionInfoVersion: '3',
+        },
+      }
+    );
+  }, []);
+
+  const handleDisconnect = async () => {
+    if (!confirm('האם אתה בטוח שברצונך לנתק את WhatsApp?')) return;
+    try {
+      await api.disconnectWhatsApp();
+      setWaStatus({ connected: false, phoneNumberId: null, wabaId: null });
+      setMessage({ type: 'success', text: 'WhatsApp נותק' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'שגיאה בניתוק' });
     }
   };
 
@@ -104,42 +236,48 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* WhatsApp */}
+      {/* WhatsApp Embedded Signup */}
       <section className="bg-white rounded-xl shadow-sm p-6 mb-4">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">חיבור WhatsApp</h2>
-        <div className="space-y-4">
+
+        {waStatus?.connected ? (
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Phone Number ID</label>
-            <input
-              type="text"
-              value={form.whatsappPhoneNumberId}
-              onChange={(e) => update('whatsappPhoneNumberId', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono text-sm"
-              dir="ltr"
-              placeholder="מ-Meta Developer Console"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Access Token</label>
-            <div className="relative">
-              <input
-                type={showToken ? 'text' : 'password'}
-                value={form.whatsappAccessToken}
-                onChange={(e) => update('whatsappAccessToken', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono text-sm pe-16"
-                dir="ltr"
-                placeholder="מ-Meta Developer Console"
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-700"
-              >
-                {showToken ? 'הסתר' : 'הצג'}
-              </button>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
+              <span className="text-sm text-emerald-700 font-medium">מחובר</span>
             </div>
+            <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-1">
+              <p className="text-sm text-gray-500" dir="ltr">
+                <span className="text-gray-400">Phone Number ID:</span> {waStatus.phoneNumberId}
+              </p>
+              <p className="text-sm text-gray-500" dir="ltr">
+                <span className="text-gray-400">WABA ID:</span> {waStatus.wabaId}
+              </p>
+            </div>
+            <button
+              onClick={handleDisconnect}
+              className="text-sm text-red-500 hover:text-red-700 transition-colors"
+            >
+              נתק WhatsApp
+            </button>
           </div>
-        </div>
+        ) : (
+          <div>
+            <p className="text-sm text-gray-500 mb-4">
+              חבר את חשבון WhatsApp Business שלך כדי שהבוט יוכל לקבל ולשלוח הודעות ללקוחות.
+            </p>
+            <button
+              onClick={launchEmbeddedSignup}
+              disabled={connecting || !fbReady}
+              className="bg-[#1877F2] text-white px-5 py-2.5 rounded-lg font-medium hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
+            >
+              {connecting ? 'מתחבר...' : 'חבר עם Facebook'}
+            </button>
+            {!fbReady && (
+              <p className="text-xs text-gray-400 mt-2">טוען Facebook SDK...</p>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Bot Settings */}

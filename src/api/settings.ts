@@ -17,8 +17,6 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       phone: tenant.phone,
       address: tenant.address || '',
       timezone: tenant.timezone,
-      whatsappPhoneNumberId: tenant.whatsappPhoneNumberId,
-      whatsappAccessToken: tenant.whatsappAccessToken,
       aiSystemPrompt: tenant.aiSystemPrompt || '',
       cancellationPolicy: tenant.cancellationPolicy || '',
     };
@@ -32,8 +30,6 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       phone?: string;
       address?: string;
       timezone?: string;
-      whatsappPhoneNumberId?: string;
-      whatsappAccessToken?: string;
       aiSystemPrompt?: string;
       cancellationPolicy?: string;
     };
@@ -43,8 +39,6 @@ export function registerSettingsRoutes(app: FastifyInstance) {
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.address !== undefined) updateData.address = body.address;
     if (body.timezone !== undefined) updateData.timezone = body.timezone;
-    if (body.whatsappPhoneNumberId !== undefined) updateData.whatsappPhoneNumberId = body.whatsappPhoneNumberId;
-    if (body.whatsappAccessToken !== undefined) updateData.whatsappAccessToken = body.whatsappAccessToken;
     if (body.aiSystemPrompt !== undefined) updateData.aiSystemPrompt = body.aiSystemPrompt;
     if (body.cancellationPolicy !== undefined) updateData.cancellationPolicy = body.cancellationPolicy;
 
