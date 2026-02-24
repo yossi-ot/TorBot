@@ -48,7 +48,9 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       let phoneNumberId = body.phoneNumberId || '';
 
       if (!wabaId || !phoneNumberId) {
-        console.log('WABA data not provided, discovering from token...');
+        const diag: string[] = [];
+        const dlog = (msg: string) => { console.log(msg); diag.push(msg); };
+        dlog('WABA discovery starting...');
 
         // Method 1: Debug token to find WABA in granular scopes
         const appToken = `${config.meta.appId}|${config.meta.appSecret}`;
@@ -57,19 +59,22 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
         );
         if (debugRes.ok) {
           const debugData = await debugRes.json() as any;
-          console.log('Debug token scopes:', JSON.stringify(debugData.data?.granular_scopes || []));
-          const wabaScope = debugData.data?.granular_scopes?.find(
+          const scopes = debugData.data?.granular_scopes || [];
+          dlog(`Scopes: ${JSON.stringify(scopes)}`);
+          const wabaScope = scopes.find(
             (s: any) => s.scope === 'whatsapp_business_management'
           );
           if (wabaScope?.target_ids?.length) {
             wabaId = wabaScope.target_ids[0];
-            console.log(`Found WABA from debug_token: ${wabaId}`);
+            dlog(`WABA from scopes: ${wabaId}`);
+          } else {
+            dlog('No WABA in scopes');
           }
         } else {
-          console.log('Debug token failed:', await debugRes.text());
+          dlog(`debug_token failed: ${await debugRes.text()}`);
         }
 
-        // Method 2: If we have WABA but no phone, or need both - try businesses
+        // Method 2: Try businesses
         if (!wabaId) {
           const bizRes = await fetch(
             `https://graph.facebook.com/v21.0/me/businesses?fields=id,name`,
@@ -77,33 +82,29 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
           );
           if (bizRes.ok) {
             const businesses = await bizRes.json() as { data: { id: string; name: string }[] };
-            console.log('Businesses found:', businesses.data?.length || 0);
+            dlog(`Businesses: ${JSON.stringify(businesses.data?.map(b => `${b.id}:${b.name}`) || [])}`);
 
             for (const biz of (businesses.data || [])) {
-              console.log(`Checking business: ${biz.id} (${biz.name})`);
-
-              // Try owned WABAs
               for (const edge of ['owned_whatsapp_business_accounts', 'client_whatsapp_business_accounts']) {
                 const wabaRes = await fetch(
                   `https://graph.facebook.com/v21.0/${biz.id}/${edge}?fields=id,name`,
                   { headers: { 'Authorization': `Bearer ${longLivedToken}` } }
                 );
                 if (!wabaRes.ok) {
-                  console.log(`  ${edge}: error ${wabaRes.status}`);
+                  dlog(`${edge}: err ${wabaRes.status}`);
                   continue;
                 }
                 const wabas = await wabaRes.json() as { data: { id: string; name: string }[] };
-                console.log(`  ${edge}: found ${wabas.data?.length || 0}`);
+                dlog(`${edge}: ${JSON.stringify(wabas.data || [])}`);
                 if (wabas.data?.length) {
                   wabaId = wabas.data[0].id;
-                  console.log(`Found WABA via ${edge}: ${wabaId} (${wabas.data[0].name})`);
                   break;
                 }
               }
               if (wabaId) break;
             }
           } else {
-            console.log('Businesses query failed:', await bizRes.text());
+            dlog(`businesses failed: ${await bizRes.text()}`);
           }
         }
 
@@ -115,19 +116,17 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
           );
           if (phonesRes.ok) {
             const phones = await phonesRes.json() as { data: { id: string; display_phone_number: string }[] };
-            console.log(`Phone numbers found: ${phones.data?.length || 0}`);
+            dlog(`Phones: ${JSON.stringify(phones.data || [])}`);
             if (phones.data?.length) {
               phoneNumberId = phones.data[0].id;
-              console.log(`Found phone: ${phoneNumberId} (${phones.data[0].display_phone_number})`);
             }
           } else {
-            console.log('Phone numbers query failed:', await phonesRes.text());
+            dlog(`phones failed: ${await phonesRes.text()}`);
           }
         }
 
         if (!wabaId || !phoneNumberId) {
-          console.error(`Discovery failed: wabaId=${wabaId}, phoneNumberId=${phoneNumberId}`);
-          return reply.code(400).send({ error: 'Could not find WhatsApp Business Account. Check server logs.' });
+          return reply.code(400).send({ error: `Discovery failed | ${diag.join(' | ')}` });
         }
       }
 
