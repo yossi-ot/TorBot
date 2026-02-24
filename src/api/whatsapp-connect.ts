@@ -32,11 +32,12 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
         `&client_secret=${config.meta.appSecret}` +
         `&code=${body.code}`;
 
+      console.log('Token exchange URL (without secret):', tokenUrl.replace(config.meta.appSecret, '***'));
       const tokenRes = await fetch(tokenUrl);
       if (!tokenRes.ok) {
         const err = await tokenRes.text();
         console.error('Token exchange failed:', err);
-        return reply.code(400).send({ error: 'Failed to exchange code for token' });
+        return reply.code(400).send({ error: `Token exchange failed: ${err}` });
       }
       const { access_token: shortLivedToken } = await tokenRes.json() as { access_token: string };
 
