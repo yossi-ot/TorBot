@@ -86,7 +86,7 @@ export const api = {
   connectWhatsApp: (data: { accessToken: string; wabaId: string; phoneNumberId: string }) =>
     request<{ ok: boolean }>('/whatsapp/connect', { method: 'POST', body: JSON.stringify(data) }),
   getWhatsAppStatus: () => request<{ connected: boolean; phoneNumberId: string | null; wabaId: string | null }>('/whatsapp/status'),
-  disconnectWhatsApp: () => request<{ ok: boolean }>('/whatsapp/disconnect', { method: 'POST' }),
+  disconnectWhatsApp: () => request<{ ok: boolean }>('/whatsapp/disconnect', { method: 'POST', body: '{}' }),
 
   // Admin
   getTenants: () => request<any[]>('/admin/tenants'),
