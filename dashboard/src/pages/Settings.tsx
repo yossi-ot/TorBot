@@ -98,11 +98,21 @@ export default function Settings() {
       if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') return;
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
-          window.__wabaSignupData = {
-            wabaId: data.data.waba_id,
-            phoneNumberId: data.data.phone_number_id,
-          };
+        // Log ALL messages from Facebook so we can debug
+        log(`FB message: ${JSON.stringify(data).substring(0, 500)}`);
+        if (data.type === 'WA_EMBEDDED_SIGNUP') {
+          log(`Signup event=${data.event}, data=${JSON.stringify(data.data || {})}`);
+          if (data.event === 'FINISH') {
+            window.__wabaSignupData = {
+              wabaId: data.data?.waba_id || '',
+              phoneNumberId: data.data?.phone_number_id || '',
+            };
+            log(`Stored signup data: waba=${data.data?.waba_id}, phone=${data.data?.phone_number_id}`);
+          } else if (data.event === 'CANCEL') {
+            log('User cancelled Embedded Signup flow');
+          } else if (data.event === 'ERROR') {
+            log(`Embedded Signup error: ${JSON.stringify(data.data)}`);
+          }
         }
       } catch {
         // Ignore non-JSON messages
