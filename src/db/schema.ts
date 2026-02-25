@@ -7,6 +7,7 @@ export const tenants = pgTable('tenants', {
   whatsappPhoneNumberId: text('whatsapp_phone_number_id').notNull(),
   whatsappAccessToken: text('whatsapp_access_token').notNull(),
   wabaId: text('waba_id'),
+  tokenExpiresAt: text('token_expires_at'),
   timezone: text('timezone').notNull().default('Asia/Jerusalem'),
   address: text('address'),
   aiSystemPrompt: text('ai_system_prompt'),

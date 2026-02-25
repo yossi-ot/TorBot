@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { registerWebhookRoutes } from './whatsapp/webhook.js';
 import { registerCalendarRoutes } from './calendar/ical.js';
 import { startReminderJob } from './notifications/reminders.js';
+import { startTokenCheckJob } from './notifications/token-check.js';
 import { registerTestRoutes } from './test-chat.js';
 import { registerApiRoutes } from './api/index.js';
 
@@ -45,8 +46,9 @@ async function start() {
     await app.listen({ port: config.port, host: '0.0.0.0' });
     console.log(`TorBot running on port ${config.port}`);
 
-    // Start reminder cron job
+    // Start cron jobs
     startReminderJob();
+    startTokenCheckJob();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

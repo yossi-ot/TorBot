@@ -165,11 +165,15 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       }
 
       // Save credentials to tenant (even without phone - can be completed later)
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setDate(tokenExpiresAt.getDate() + 60);
+
       await db.update(schema.tenants)
         .set({
           wabaId,
           whatsappPhoneNumberId: phoneNumberId || '',
           whatsappAccessToken: longLivedToken,
+          tokenExpiresAt: tokenExpiresAt.toISOString(),
         })
         .where(eq(schema.tenants.id, tenantId));
 
@@ -187,6 +191,7 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       phoneNumberId: schema.tenants.whatsappPhoneNumberId,
       wabaId: schema.tenants.wabaId,
       accessToken: schema.tenants.whatsappAccessToken,
+      tokenExpiresAt: schema.tenants.tokenExpiresAt,
     }).from(schema.tenants)
       .where(eq(schema.tenants.id, tenantId));
 
@@ -194,6 +199,15 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
 
     const hasWaba = !!(tenant.wabaId && tenant.wabaId.length > 0);
     const hasPhone = !!(tenant.phoneNumberId && tenant.phoneNumberId.length > 0);
+
+    // Calculate token expiry info
+    let daysUntilExpiry: number | null = null;
+    let tokenExpiring = false;
+    if (tenant.tokenExpiresAt) {
+      const expiresAt = new Date(tenant.tokenExpiresAt);
+      daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      tokenExpiring = daysUntilExpiry <= 7;
+    }
 
     // If we have WABA but no phone, try to discover it now
     if (hasWaba && !hasPhone && tenant.accessToken) {
@@ -208,10 +222,10 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
           await db.update(schema.tenants)
             .set({ whatsappPhoneNumberId: phoneId })
             .where(eq(schema.tenants.id, tenantId));
-          return { connected: true, phoneNumberId: phoneId, wabaId: tenant.wabaId, phonePending: false };
+          return { connected: true, phoneNumberId: phoneId, wabaId: tenant.wabaId, phonePending: false, daysUntilExpiry, tokenExpiring };
         }
       }
-      return { connected: false, phoneNumberId: null, wabaId: tenant.wabaId, phonePending: true };
+      return { connected: false, phoneNumberId: null, wabaId: tenant.wabaId, phonePending: true, daysUntilExpiry, tokenExpiring };
     }
 
     return {
@@ -219,6 +233,8 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       phoneNumberId: tenant.phoneNumberId || null,
       wabaId: tenant.wabaId || null,
       phonePending: hasWaba && !hasPhone,
+      daysUntilExpiry,
+      tokenExpiring,
     };
   });
 
@@ -230,6 +246,7 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
         wabaId: '',
         whatsappPhoneNumberId: '',
         whatsappAccessToken: '',
+        tokenExpiresAt: null,
       })
       .where(eq(schema.tenants.id, tenantId));
     return { ok: true };

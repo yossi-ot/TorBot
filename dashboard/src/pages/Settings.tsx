@@ -22,6 +22,8 @@ interface WhatsAppStatus {
   connected: boolean;
   phoneNumberId: string | null;
   wabaId: string | null;
+  daysUntilExpiry: number | null;
+  tokenExpiring: boolean;
 }
 
 const emptySettings: TenantSettings = {
@@ -194,6 +196,8 @@ export default function Settings() {
               connected: !res.phonePending,
               phoneNumberId: res.phoneNumberId || signupData?.phoneNumberId || '',
               wabaId: res.wabaId || signupData?.wabaId || '',
+              daysUntilExpiry: 60,
+              tokenExpiring: false,
             });
             if (res.phonePending) {
               setMessage({ type: 'success', text: 'WABA חובר! ממתין לרישום מספר טלפון...' });
@@ -232,7 +236,7 @@ export default function Settings() {
     if (!confirm('האם אתה בטוח שברצונך לנתק את WhatsApp?')) return;
     try {
       await api.disconnectWhatsApp();
-      setWaStatus({ connected: false, phoneNumberId: null, wabaId: null });
+      setWaStatus({ connected: false, phoneNumberId: null, wabaId: null, daysUntilExpiry: null, tokenExpiring: false });
       setMessage({ type: 'success', text: 'WhatsApp נותק' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'שגיאה בניתוק' });
@@ -303,6 +307,18 @@ export default function Settings() {
               <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
               <span className="text-sm text-emerald-700 font-medium">מחובר</span>
             </div>
+            {waStatus.daysUntilExpiry !== null && waStatus.daysUntilExpiry <= 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800 font-medium">הטוקן פג תוקף! הבוט לא פעיל.</p>
+                <p className="text-xs text-red-600 mt-1">לחץ "חבר מחדש" כדי לחדש את החיבור.</p>
+              </div>
+            )}
+            {waStatus.daysUntilExpiry !== null && waStatus.daysUntilExpiry > 0 && waStatus.daysUntilExpiry <= 7 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-amber-800 font-medium">הטוקן פג תוקף בעוד {waStatus.daysUntilExpiry} ימים</p>
+                <p className="text-xs text-amber-600 mt-1">לחץ "חבר מחדש" כדי לחדש את החיבור לפני שהבוט יפסיק לעבוד.</p>
+              </div>
+            )}
             <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-1">
               <p className="text-sm text-gray-500" dir="ltr">
                 <span className="text-gray-400">Phone Number ID:</span> {waStatus.phoneNumberId}
@@ -311,12 +327,23 @@ export default function Settings() {
                 <span className="text-gray-400">WABA ID:</span> {waStatus.wabaId}
               </p>
             </div>
-            <button
-              onClick={handleDisconnect}
-              className="text-sm text-red-500 hover:text-red-700 transition-colors"
-            >
-              נתק WhatsApp
-            </button>
+            <div className="flex gap-3 items-center">
+              {waStatus.tokenExpiring && (
+                <button
+                  onClick={launchEmbeddedSignup}
+                  disabled={connecting || !fbReady}
+                  className="bg-[#1877F2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
+                >
+                  {connecting ? 'מתחבר...' : 'חבר מחדש'}
+                </button>
+              )}
+              <button
+                onClick={handleDisconnect}
+                className="text-sm text-red-500 hover:text-red-700 transition-colors"
+              >
+                נתק WhatsApp
+              </button>
+            </div>
           </div>
         ) : waStatus?.wabaId ? (
           <div>
