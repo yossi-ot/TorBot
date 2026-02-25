@@ -18,7 +18,7 @@ export async function startBooking(session: Session): Promise<string> {
     return 'סליחה, אין שירותים זמינים כרגע.';
   }
 
-  updateSession(session, { state: 'SELECT_SERVICE' });
+  await updateSession(session, { state: 'SELECT_SERVICE' });
 
   const lines = services.map((s, i) =>
     `${i + 1}️⃣ ${s.name} (${s.durationMinutes} דק') - ₪${s.price}`
@@ -50,7 +50,7 @@ export async function handleServiceSelection(session: Session, input: string): P
     return `לא הבנתי. בחר מספר בין 1 ל-${services.length}:`;
   }
 
-  updateSession(session, {
+  await updateSession(session, {
     state: 'SELECT_DATE',
     selectedServiceId: service.id,
     selectedServiceName: service.name,
@@ -60,7 +60,7 @@ export async function handleServiceSelection(session: Session, input: string): P
   const dates = await getAvailableDates(session.tenantId, service.durationMinutes, 7);
 
   if (dates.length === 0) {
-    updateSession(session, { state: 'IDLE' });
+    await updateSession(session, { state: 'IDLE' });
     return 'סליחה, אין תורים פנויים בשבוע הקרוב. נסה שוב מאוחר יותר.';
   }
 
@@ -106,7 +106,7 @@ export async function handleDateSelection(session: Session, input: string): Prom
     return `אין תורים פנויים ב-${formatDateHebrew(dayjs(selectedDate))}. בחר תאריך אחר:`;
   }
 
-  updateSession(session, {
+  await updateSession(session, {
     state: 'SELECT_TIME',
     selectedDate,
     availableSlots: slots.map(s => s.time),
@@ -141,7 +141,7 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     return 'לא הבנתי. בחר מספר מהרשימה או כתוב שעה כמו 10:30:';
   }
 
-  updateSession(session, {
+  await updateSession(session, {
     state: 'CONFIRM_BOOKING',
     selectedTime,
   });
@@ -161,7 +161,7 @@ export async function handleConfirmation(session: Session, input: string): Promi
   const negative = /^(לא|ביטול|no|2|cancel)$/i.test(input.trim());
 
   if (negative) {
-    updateSession(session, { state: 'IDLE' });
+    await updateSession(session, { state: 'IDLE' });
     return 'התור בוטל. אם תרצה לקבוע תור חדש, פשוט כתוב "תור".';
   }
 
@@ -185,7 +185,7 @@ export async function handleConfirmation(session: Session, input: string): Promi
     session.selectedStaffId,
   );
 
-  updateSession(session, { state: 'IDLE' });
+  await updateSession(session, { state: 'IDLE' });
 
   if (!result.success) {
     return result.error || 'שגיאה בקביעת התור. נסה שוב.';

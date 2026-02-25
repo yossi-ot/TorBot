@@ -1,3 +1,6 @@
+import { db, schema } from '../db/index.js';
+import { eq } from 'drizzle-orm';
+
 export type FlowState =
   | 'IDLE'
   | 'SELECT_SERVICE'
@@ -22,56 +25,110 @@ export interface Session {
 }
 
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const sessions = new Map<string, Session>();
 
 function sessionKey(tenantId: string, phone: string): string {
   return `${tenantId}:${phone}`;
 }
 
-export function getSession(tenantId: string, phone: string): Session | null {
-  const key = sessionKey(tenantId, phone);
-  const session = sessions.get(key);
+/** Extract dynamic data fields from session into a JSON-safe object */
+function sessionToData(session: Partial<Session>): string {
+  const data: Record<string, unknown> = {};
+  if (session.selectedServiceId !== undefined) data.selectedServiceId = session.selectedServiceId;
+  if (session.selectedServiceName !== undefined) data.selectedServiceName = session.selectedServiceName;
+  if (session.selectedDate !== undefined) data.selectedDate = session.selectedDate;
+  if (session.selectedTime !== undefined) data.selectedTime = session.selectedTime;
+  if (session.selectedStaffId !== undefined) data.selectedStaffId = session.selectedStaffId;
+  if (session.availableSlots !== undefined) data.availableSlots = session.availableSlots;
+  if (session.appointmentIdToCancel !== undefined) data.appointmentIdToCancel = session.appointmentIdToCancel;
+  return JSON.stringify(data);
+}
 
-  if (!session) return null;
+/** Reconstruct a full Session object from a DB row */
+function rowToSession(row: typeof schema.sessions.$inferSelect): Session {
+  const data = JSON.parse(row.data) as Record<string, unknown>;
+  return {
+    tenantId: row.tenantId,
+    customerPhone: row.customerPhone,
+    customerName: row.customerName,
+    state: row.state as FlowState,
+    lastActivity: new Date(row.lastActivity).getTime(),
+    ...(data.selectedServiceId !== undefined && { selectedServiceId: data.selectedServiceId as string }),
+    ...(data.selectedServiceName !== undefined && { selectedServiceName: data.selectedServiceName as string }),
+    ...(data.selectedDate !== undefined && { selectedDate: data.selectedDate as string }),
+    ...(data.selectedTime !== undefined && { selectedTime: data.selectedTime as string }),
+    ...(data.selectedStaffId !== undefined && { selectedStaffId: data.selectedStaffId as string }),
+    ...(data.availableSlots !== undefined && { availableSlots: data.availableSlots as string[] }),
+    ...(data.appointmentIdToCancel !== undefined && { appointmentIdToCancel: data.appointmentIdToCancel as string }),
+  };
+}
+
+export async function getSession(tenantId: string, phone: string): Promise<Session | null> {
+  const key = sessionKey(tenantId, phone);
+  const [row] = await db.select().from(schema.sessions).where(eq(schema.sessions.id, key));
+
+  if (!row) return null;
 
   // Check TTL
-  if (Date.now() - session.lastActivity > SESSION_TTL_MS) {
-    sessions.delete(key);
+  const lastActivity = new Date(row.lastActivity).getTime();
+  if (Date.now() - lastActivity > SESSION_TTL_MS) {
+    await db.delete(schema.sessions).where(eq(schema.sessions.id, key));
     return null;
   }
 
+  // Update last activity
+  const now = new Date().toISOString();
+  await db.update(schema.sessions).set({ lastActivity: now }).where(eq(schema.sessions.id, key));
+
+  const session = rowToSession(row);
   session.lastActivity = Date.now();
   return session;
 }
 
-export function createSession(tenantId: string, phone: string, name: string): Session {
+export async function createSession(tenantId: string, phone: string, name: string): Promise<Session> {
   const key = sessionKey(tenantId, phone);
-  const session: Session = {
+  const now = new Date().toISOString();
+
+  await db.insert(schema.sessions).values({
+    id: key,
+    tenantId,
+    customerPhone: phone,
+    customerName: name,
+    state: 'IDLE',
+    data: '{}',
+    lastActivity: now,
+  }).onConflictDoUpdate({
+    target: schema.sessions.id,
+    set: {
+      customerName: name,
+      state: 'IDLE',
+      data: '{}',
+      lastActivity: now,
+    },
+  });
+
+  return {
     tenantId,
     customerPhone: phone,
     customerName: name,
     state: 'IDLE',
     lastActivity: Date.now(),
   };
-  sessions.set(key, session);
-  return session;
 }
 
-export function updateSession(session: Session, updates: Partial<Session>): Session {
+export async function updateSession(session: Session, updates: Partial<Session>): Promise<Session> {
   Object.assign(session, updates, { lastActivity: Date.now() });
+
+  const key = sessionKey(session.tenantId, session.customerPhone);
+  await db.update(schema.sessions).set({
+    state: session.state,
+    customerName: session.customerName,
+    data: sessionToData(session),
+    lastActivity: new Date().toISOString(),
+  }).where(eq(schema.sessions.id, key));
+
   return session;
 }
 
-export function clearSession(tenantId: string, phone: string): void {
-  sessions.delete(sessionKey(tenantId, phone));
+export async function clearSession(tenantId: string, phone: string): Promise<void> {
+  await db.delete(schema.sessions).where(eq(schema.sessions.id, sessionKey(tenantId, phone)));
 }
-
-// Cleanup expired sessions every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, session] of sessions) {
-    if (now - session.lastActivity > SESSION_TTL_MS) {
-      sessions.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);

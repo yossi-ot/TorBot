@@ -16,7 +16,7 @@ export async function startCancel(session: Session): Promise<string> {
     return 'אין לך תורים קרובים.';
   }
 
-  updateSession(session, { state: 'CANCEL_SELECT' });
+  await updateSession(session, { state: 'CANCEL_SELECT' });
 
   const lines = appointments.map((a, i) =>
     `${i + 1}️⃣ ${a.serviceName} - ${formatDateHebrew(dayjs(a.startTime))} ב-${dayjs(a.startTime).format('HH:mm')}`
@@ -43,7 +43,7 @@ export async function handleCancelSelection(session: Session, input: string): Pr
   const appointment = appointments[num - 1];
   const success = await cancelBooking(appointment.id);
 
-  updateSession(session, { state: 'IDLE' });
+  await updateSession(session, { state: 'IDLE' });
 
   if (success) {
     return `✅ התור בוטל:\n${appointment.serviceName} - ${formatDateHebrew(dayjs(appointment.startTime))} ב-${dayjs(appointment.startTime).format('HH:mm')}\n\nרוצה לקבוע תור חדש? כתוב "תור".`;

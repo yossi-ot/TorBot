@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
 import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
-import { signJwt } from './middleware.js';
+import { signJwt, verifyJwt } from './middleware.js';
 
 export function registerAuthRoutes(app: FastifyInstance) {
   // Login with email + password
@@ -98,5 +98,29 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     const token = signJwt({ userId, tenantId, role: 'owner' });
     return { token, tenantId };
+  });
+
+  // Refresh token - returns a new JWT if current one is still valid
+  app.post('/api/auth/refresh', async (request, reply) => {
+    const auth = request.headers.authorization;
+    if (!auth?.startsWith('Bearer ')) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const payload = verifyJwt(auth.slice(7));
+    if (!payload) {
+      return reply.code(401).send({ error: 'Invalid or expired token' });
+    }
+
+    // Verify user still exists
+    const [user] = await db.select().from(schema.users)
+      .where(eq(schema.users.id, payload.userId));
+
+    if (!user) {
+      return reply.code(401).send({ error: 'User not found' });
+    }
+
+    const token = signJwt({ userId: user.id, tenantId: user.tenantId, role: user.role });
+    return { token };
   });
 }

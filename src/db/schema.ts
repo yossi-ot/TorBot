@@ -74,6 +74,16 @@ export const customers = pgTable('customers', {
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const sessions = pgTable('sessions', {
+  id: text('id').primaryKey(),                // tenantId:phone
+  tenantId: text('tenant_id').notNull(),
+  customerPhone: text('customer_phone').notNull(),
+  customerName: text('customer_name').notNull(),
+  state: text('state').notNull().default('IDLE'),
+  data: text('data').notNull().default('{}'), // JSON - selectedServiceId, date, time etc.
+  lastActivity: text('last_activity').notNull(),
+});
+
 export const appointments = pgTable('appointments', {
   id: text('id').primaryKey(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),

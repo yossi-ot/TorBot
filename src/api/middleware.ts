@@ -23,7 +23,7 @@ function base64urlDecode(str: string): string {
 export function signJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
   const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
-  const body = base64url(JSON.stringify({ ...payload, iat: now, exp: now + 86400 }));
+  const body = base64url(JSON.stringify({ ...payload, iat: now, exp: now + 30 * 86400 }));
   const signature = createHmac(ALGORITHM, config.dashboard.jwtSecret)
     .update(`${header}.${body}`)
     .digest('base64url');

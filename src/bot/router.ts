@@ -32,26 +32,30 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   }
 
   const phone = normalizePhone(msg.from);
-  let session = getSession(tenant.id, phone);
+  let session = await getSession(tenant.id, phone);
   if (!session) {
-    session = createSession(tenant.id, phone, msg.contactName);
+    session = await createSession(tenant.id, phone, msg.contactName);
   }
 
   const response = await routeMessage(session, msg.text.trim());
 
-  await sendWhatsAppMessage({
-    phoneNumberId: tenant.whatsappPhoneNumberId,
-    accessToken: tenant.whatsappAccessToken,
-    to: msg.from,
-    text: response,
-  });
+  try {
+    await sendWhatsAppMessage({
+      phoneNumberId: tenant.whatsappPhoneNumberId,
+      accessToken: tenant.whatsappAccessToken,
+      to: msg.from,
+      text: response,
+    });
+  } catch (err) {
+    console.error(`Failed to send reply to ${msg.from}:`, err);
+  }
 }
 
 /** Direct message handler for testing - returns the response text */
 export async function handleTestMessage(tenantId: string, phone: string, text: string, contactName: string): Promise<string> {
-  let session = getSession(tenantId, phone);
+  let session = await getSession(tenantId, phone);
   if (!session) {
-    session = createSession(tenantId, phone, contactName);
+    session = await createSession(tenantId, phone, contactName);
   }
   return routeMessage(session, text.trim());
 }

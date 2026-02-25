@@ -16,7 +16,63 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
+/** Decode JWT payload without verification (client-side) */
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return null;
+  }
+}
+
+let refreshing: Promise<void> | null = null;
+
+/** Auto-refresh token if expiring within 7 days */
+async function maybeRefreshToken(): Promise<void> {
+  const token = getToken();
+  if (!token) return;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return;
+
+  const sevenDays = 7 * 24 * 60 * 60;
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp - now > sevenDays) return; // Still fresh
+
+  // Avoid concurrent refreshes
+  if (refreshing) return refreshing;
+
+  refreshing = (async () => {
+    try {
+      const res = await fetch(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) setToken(data.token);
+      }
+    } catch {
+      // Silently fail - will retry on next request
+    } finally {
+      refreshing = null;
+    }
+  })();
+
+  return refreshing;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // Auto-refresh token before making request (skip for auth endpoints)
+  if (!path.startsWith('/auth/')) {
+    await maybeRefreshToken();
+  }
+
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
