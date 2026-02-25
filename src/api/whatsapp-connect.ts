@@ -227,7 +227,7 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
     const tenantId = (request as any).tenantId;
     await db.update(schema.tenants)
       .set({
-        wabaId: null,
+        wabaId: '',
         whatsappPhoneNumberId: '',
         whatsappAccessToken: '',
       })
