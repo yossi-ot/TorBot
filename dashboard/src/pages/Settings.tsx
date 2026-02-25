@@ -37,12 +37,10 @@ export default function Settings() {
   const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [fbReady, setFbReady] = useState(false);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
   const metaConfigRef = useRef<{ appId: string; configId: string } | null>(null);
 
   const log = (msg: string) => {
     console.log('[WA Debug]', msg);
-    setDebugLog((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
   };
 
   // Fetch Meta config from backend and initialize Facebook SDK
@@ -370,19 +368,16 @@ export default function Settings() {
             >
               {connecting ? 'מתחבר...' : 'חבר עם Facebook'}
             </button>
-            <button
-              onClick={() => {
-                const w = window.open('https://www.facebook.com', '_blank');
-                log(`Popup test: ${w ? 'OPENED' : 'BLOCKED'}`);
-                if (w) w.close();
-              }}
-              className="text-xs text-gray-400 underline mr-4 mt-2"
-            >
-              [Test Popup]
-            </button>
             {!fbReady && (
               <p className="text-xs text-gray-400 mt-2">טוען Facebook SDK...</p>
             )}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+              <p className="text-sm text-amber-800 font-medium mb-1">משתמש ב-WhatsApp Business App?</p>
+              <p className="text-xs text-amber-700">
+                אם יש לך אפליקציית WhatsApp Business בטלפון, שים לב: לא ניתן להשתמש באותו מספר גם באפליקציה וגם בבוט.
+                בחלון ההתחברות, בחר "צור חשבון WhatsApp חדש" והשתמש במספר טלפון אחר, או העבר את המספר הקיים (האפליקציה תפסיק לעבוד).
+              </p>
+            </div>
           </div>
         )}
       </section>
@@ -413,14 +408,6 @@ export default function Settings() {
           </div>
         </div>
       </section>
-
-      {/* Debug Log */}
-      {debugLog.length > 0 && (
-        <section className="bg-gray-900 text-green-400 rounded-xl p-4 mb-4 font-mono text-xs max-h-48 overflow-y-auto" dir="ltr">
-          <h3 className="text-gray-500 mb-2">Debug Log:</h3>
-          {debugLog.map((line, i) => <div key={i}>{line}</div>)}
-        </section>
-      )}
 
       {/* Save */}
       <div className="flex items-center gap-4">
