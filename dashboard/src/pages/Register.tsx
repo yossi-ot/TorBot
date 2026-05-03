@@ -94,6 +94,12 @@ export default function Register() {
           >
             {loading ? 'נרשם...' : 'צור חשבון'}
           </button>
+          <p className="text-center text-xs text-gray-400 mt-3">
+            בלחיצה על "צור חשבון" אתה מאשר את{' '}
+            <a href="/terms" target="_blank" className="hover:underline text-gray-500">תנאי השימוש</a>
+            {' ו'}
+            <a href="/privacy" target="_blank" className="hover:underline text-gray-500">מדיניות הפרטיות</a>
+          </p>
         </form>
         <p className="text-center text-sm text-gray-500 mt-4">
           כבר יש לך חשבון?{' '}

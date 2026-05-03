@@ -64,6 +64,11 @@ export default function Login() {
             הרשמה לעסק חדש
           </Link>
         </p>
+        <p className="text-center text-xs text-gray-400 mt-6">
+          <a href="/privacy" className="hover:underline">מדיניות פרטיות</a>
+          {' · '}
+          <a href="/terms" className="hover:underline">תנאי שימוש</a>
+        </p>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { startReminderJob } from './notifications/reminders.js';
 import { startTokenCheckJob } from './notifications/token-check.js';
 import { registerTestRoutes } from './test-chat.js';
 import { registerApiRoutes } from './api/index.js';
+import { registerLegalRoutes } from './legal.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,10 +19,11 @@ const app = Fastify({ logger: true });
 // API routes (must be before static serving)
 registerApiRoutes(app);
 
-// WhatsApp + Calendar + Test routes
+// WhatsApp + Calendar + Test + Legal routes
 registerWebhookRoutes(app);
 registerCalendarRoutes(app);
 registerTestRoutes(app);
+registerLegalRoutes(app);
 
 // Serve dashboard static files with SPA fallback
 app.register(fastifyStatic, {
