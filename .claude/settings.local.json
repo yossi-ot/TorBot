@@ -86,7 +86,10 @@
       "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; \"=== IPs ===\"; & $fly ips list --app torbot-il 2>&1; \"=== Cert details \\(apex\\) ===\"; & $fly certs show torbot.co.il --app torbot-il 2>&1)",
       "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; & $fly certs check torbot.co.il --app torbot-il 2>&1; \"---\"; & $fly certs show torbot.co.il --app torbot-il 2>&1)",
       "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; & $fly certs remove torbot.co.il --app torbot-il --yes 2>&1; \"---\"; Start-Sleep -Seconds 3; & $fly certs add torbot.co.il --app torbot-il 2>&1)",
-      "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; Start-Sleep -Seconds 30; & $fly certs check torbot.co.il --app torbot-il 2>&1; \"---\"; & $fly certs list --app torbot-il 2>&1)"
+      "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; Start-Sleep -Seconds 30; & $fly certs check torbot.co.il --app torbot-il 2>&1; \"---\"; & $fly certs list --app torbot-il 2>&1)",
+      "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; & $fly status --app torbot-il 2>&1 | Select-String -Pattern \"version|started|stopped|deployment\")",
+      "Bash('/c/Users/yossi otmazgin/.fly/bin/flyctl.exe' status --app torbot-il)",
+      "PowerShell($fly = \"C:\\\\Users\\\\yossi otmazgin\\\\.fly\\\\bin\\\\flyctl.exe\"; & $fly status --app torbot-il 2>&1 | Select-String \"VERSION|app \")"
     ]
   }
 }
