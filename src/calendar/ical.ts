@@ -7,11 +7,10 @@ export function registerCalendarRoutes(app: FastifyInstance) {
   app.get('/calendar/:tenantId/:token.ics', async (request, reply) => {
     const { tenantId, token } = request.params as { tenantId: string; token: string };
 
-    // Validate tenant exists (token = tenantId for simplicity in MVP)
     const [tenant] = await db.select().from(schema.tenants)
       .where(eq(schema.tenants.id, tenantId));
 
-    if (!tenant) {
+    if (!tenant || !tenant.icalToken || tenant.icalToken !== token) {
       return reply.code(404).send('Not found');
     }
 

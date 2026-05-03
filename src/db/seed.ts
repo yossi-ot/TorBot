@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { v4 as uuid } from 'uuid';
 import bcrypt from 'bcrypt';
 import * as schema from './schema.js';
@@ -16,6 +16,14 @@ async function seed() {
     ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
   });
   const db = drizzle(pool, { schema });
+
+  // Backfill icalToken for any tenant missing one
+  const missingTokens = await db.select({ id: schema.tenants.id }).from(schema.tenants)
+    .where(isNull(schema.tenants.icalToken));
+  for (const t of missingTokens) {
+    await db.update(schema.tenants).set({ icalToken: uuid() }).where(eq(schema.tenants.id, t.id));
+  }
+  if (missingTokens.length > 0) console.log(`Backfilled icalToken for ${missingTokens.length} tenant(s)`);
 
   const tenantId = 'demo-salon';
 
@@ -39,6 +47,7 @@ async function seed() {
     timezone: 'Asia/Jerusalem',
     address: 'דיזנגוף 99, תל אביב',
     cancellationPolicy: 'ביטול עד 2 שעות לפני התור',
+    icalToken: uuid(),
   });
 
   // Create demo user

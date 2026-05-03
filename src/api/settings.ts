@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { v4 as uuid } from 'uuid';
 import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 
@@ -47,5 +48,33 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       .where(eq(schema.tenants.id, tenantId));
 
     return { ok: true };
+  });
+
+  // Get iCal subscription URL (creates token on first call if missing)
+  app.get('/api/settings/ical-url', async (request) => {
+    const tenantId = (request as any).tenantId;
+    const [tenant] = await db.select().from(schema.tenants)
+      .where(eq(schema.tenants.id, tenantId));
+    if (!tenant) return { error: 'Tenant not found' };
+
+    let token = tenant.icalToken;
+    if (!token) {
+      token = uuid();
+      await db.update(schema.tenants).set({ icalToken: token }).where(eq(schema.tenants.id, tenantId));
+    }
+
+    const proto = (request.headers['x-forwarded-proto'] as string) || 'https';
+    const host = request.headers.host;
+    return { url: `${proto}://${host}/calendar/${tenantId}/${token}.ics` };
+  });
+
+  // Regenerate iCal token (invalidates the old URL)
+  app.post('/api/settings/ical-token/regenerate', async (request) => {
+    const tenantId = (request as any).tenantId;
+    const token = uuid();
+    await db.update(schema.tenants).set({ icalToken: token }).where(eq(schema.tenants.id, tenantId));
+    const proto = (request.headers['x-forwarded-proto'] as string) || 'https';
+    const host = request.headers.host;
+    return { url: `${proto}://${host}/calendar/${tenantId}/${token}.ics` };
   });
 }

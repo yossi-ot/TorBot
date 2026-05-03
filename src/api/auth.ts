@@ -64,6 +64,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
       whatsappAccessToken: '',
       timezone: 'Asia/Jerusalem',
       cancellationPolicy: 'ביטול עד 2 שעות לפני התור',
+      icalToken: uuid(),
     });
 
     // Create user

@@ -12,6 +12,7 @@ export const tenants = pgTable('tenants', {
   address: text('address'),
   aiSystemPrompt: text('ai_system_prompt'),
   cancellationPolicy: text('cancellation_policy'),
+  icalToken: text('ical_token'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
