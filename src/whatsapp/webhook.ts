@@ -54,6 +54,8 @@ export function registerWebhookRoutes(app: FastifyInstance) {
   app.post('/webhook', async (request, reply) => {
     const body = request.body as WhatsAppWebhookBody;
 
+    console.log('WEBHOOK BODY:', JSON.stringify(body));
+
     if (body.object !== 'whatsapp_business_account') {
       return reply.code(404).send();
     }
@@ -63,9 +65,13 @@ export function registerWebhookRoutes(app: FastifyInstance) {
         const value = change.value;
         const phoneNumberId = value.metadata.phone_number_id;
 
-        if (!value.messages) continue;
+        if (!value.messages) {
+          console.log('WEBHOOK: no messages in value (likely status callback)');
+          continue;
+        }
 
         for (const message of value.messages) {
+          console.log('WEBHOOK message type:', message.type, 'has text:', !!message.text);
           if (message.type !== 'text' || !message.text) continue;
 
           const contactName = value.contacts?.[0]?.profile?.name || '';
