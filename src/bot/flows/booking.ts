@@ -5,7 +5,8 @@ import { getAvailableSlots, getAvailableDates } from '../../scheduling/availabil
 import { createBooking, findOrCreateCustomer } from '../../scheduling/booking.js';
 import { dayjs, formatDateHebrew, parseHebrewDate, parseHebrewTime } from '../../utils/date.js';
 import type { NormalizedMessage } from '../ai-fallback.js';
-import { interpretService, interpretDate, interpretTime, interpretConfirm } from '../ai-fallback.js';
+import { interpretService, interpretDate, interpretTime, interpretConfirm, normalizeMessage } from '../ai-fallback.js';
+import { handleMyAppointments } from './my-appointments.js';
 
 /** Show list of services to choose from */
 export async function startBooking(session: Session): Promise<string> {
@@ -55,6 +56,8 @@ export async function handleServiceSelection(session: Session, input: string): P
   }
 
   if (!service) {
+    const rescue = await rescueWithNormalizer(session, input);
+    if (rescue) return rescue;
     return `לא הבנתי. בחר מספר בין 1 ל-${services.length}:`;
   }
 
@@ -147,6 +150,8 @@ export async function handleDateSelection(session: Session, input: string): Prom
   }
 
   if (!selectedDate) {
+    const rescue = await rescueWithNormalizer(session, input);
+    if (rescue) return rescue;
     return 'לא הבנתי את התאריך. בחר מספר מהרשימה או כתוב "מחר", "היום", או תאריך כמו 25/02:';
   }
 
@@ -208,6 +213,8 @@ export async function handleTimeSelection(session: Session, input: string): Prom
   }
 
   if (!selectedTime) {
+    const rescue = await rescueWithNormalizer(session, input);
+    if (rescue) return rescue;
     const samples = slots.slice(0, 3).join(', ');
     return `לא הבנתי. כתוב שעה כמו *10:30* או *14:00*\n(לדוגמה זמנים פנויים: ${samples})`;
   }
@@ -398,6 +405,57 @@ async function askDatePrompt(tenantId: string, durationMinutes: number, serviceN
   }
   const lines = dates.map((d, i) => `${i + 1}️⃣ ${formatDateHebrew(dayjs(d))}`);
   return `בחרת: *${serviceName}*\n\nמתי נוח לך?\n${lines.join('\n')}\n\nאפשר גם לכתוב "מחר" או תאריך (25/02)`;
+}
+
+/**
+ * Last-resort rescue when none of the in-context parsers / interpreters
+ * could make sense of mid-flow input. Runs the full normalizer to detect
+ * if the user is changing date, switching service, cancelling, etc.
+ * Returns a response string if it rerouted, or null to fall through.
+ */
+async function rescueWithNormalizer(session: Session, input: string): Promise<string | null> {
+  const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, session.tenantId));
+  const services = (await db.select().from(schema.services)
+    .where(and(
+      eq(schema.services.tenantId, session.tenantId),
+      eq(schema.services.isActive, true),
+    )));
+
+  const tz = tenant?.timezone || 'Asia/Jerusalem';
+  const n = await normalizeMessage(input, {
+    businessName: tenant?.name || '',
+    serviceNames: services.map(s => s.name),
+    todayIso: dayjs().tz(tz).format('YYYY-MM-DD'),
+  });
+
+  if (n.intent === 'book') {
+    // Only reroute if AI actually picked up something new — otherwise the
+    // user is just repeating themselves and the calling handler will give
+    // a help message.
+    if (!n.serviceName && !n.date && !n.time) return null;
+
+    // Keep prior selections that the new message didn't override.
+    if (!n.serviceName && session.selectedServiceName) n.serviceName = session.selectedServiceName;
+    return startBookingWithEntities(session, n);
+  }
+
+  if (n.intent === 'cancel') {
+    await updateSession(session, {
+      state: 'IDLE',
+      selectedServiceId: undefined,
+      selectedServiceName: undefined,
+      selectedDate: undefined,
+      selectedTime: undefined,
+      availableSlots: undefined,
+    });
+    return 'אוקיי, ביטלתי את התהליך. כתוב "תור" כשתרצה להתחיל מחדש.';
+  }
+
+  if (n.intent === 'list') {
+    return handleMyAppointments(session);
+  }
+
+  return null;
 }
 
 function resolveAiDate(input: string | undefined, tz: string): string | null {
