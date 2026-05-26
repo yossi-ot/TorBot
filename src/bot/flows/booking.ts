@@ -112,9 +112,10 @@ export async function handleDateSelection(session: Session, input: string): Prom
     availableSlots: slots.map(s => s.time),
   });
 
-  const lines = slots.map((s, i) => `${i + 1}️⃣ ${s.time}`);
+  const firstSlot = slots[0].time;
+  const lastSlot = slots[slots.length - 1].time;
 
-  return `📅 ${formatDateHebrew(dayjs(selectedDate))}\n\nבחר שעה:\n${lines.join('\n')}`;
+  return `📅 ${formatDateHebrew(dayjs(selectedDate))}\n\nבאיזו שעה נוח לך?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${firstSlot} ל-${lastSlot})`;
 }
 
 /** Handle time selection, show confirmation */
@@ -123,22 +124,29 @@ export async function handleTimeSelection(session: Session, input: string): Prom
 
   let selectedTime: string | null = null;
 
-  // Try number selection
-  const num = parseInt(input);
-  if (num > 0 && num <= slots.length) {
-    selectedTime = slots[num - 1];
+  // Parse the time the user typed
+  const parsed = parseHebrewTime(input);
+  if (parsed) {
+    if (slots.includes(parsed)) {
+      selectedTime = parsed;
+    } else {
+      // Suggest 3 nearest available times
+      const suggestions = findNearestSlots(parsed, slots, 3);
+      return `השעה ${parsed} תפוסה 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+    }
   }
 
-  // Try time parsing
+  // Fall back to number selection for users who insist on a list
   if (!selectedTime) {
-    selectedTime = parseHebrewTime(input);
-    if (selectedTime && !slots.includes(selectedTime)) {
-      return `השעה ${selectedTime} לא פנויה. בחר מהרשימה:\n${slots.map((s, i) => `${i + 1}️⃣ ${s}`).join('\n')}`;
+    const num = parseInt(input);
+    if (num > 0 && num <= slots.length) {
+      selectedTime = slots[num - 1];
     }
   }
 
   if (!selectedTime) {
-    return 'לא הבנתי. בחר מספר מהרשימה או כתוב שעה כמו 10:30:';
+    const samples = slots.slice(0, 3).join(', ');
+    return `לא הבנתי. כתוב שעה כמו *10:30* או *14:00*\n(לדוגמה זמנים פנויים: ${samples})`;
   }
 
   await updateSession(session, {
@@ -206,4 +214,20 @@ async function getServiceDuration(session: Session): Promise<number | null> {
   const [service] = await db.select().from(schema.services)
     .where(eq(schema.services.id, session.selectedServiceId));
   return service?.durationMinutes || null;
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** Return the `count` slots closest to `target` (sorted chronologically). */
+function findNearestSlots(target: string, slots: string[], count: number): string[] {
+  const targetMin = timeToMinutes(target);
+  return slots
+    .map(s => ({ time: s, diff: Math.abs(timeToMinutes(s) - targetMin) }))
+    .sort((a, b) => a.diff - b.diff)
+    .slice(0, count)
+    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+    .map(x => x.time);
 }
