@@ -1,14 +1,15 @@
 import { db, schema } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getSession, createSession, Session } from './session.js';
 import { sendWhatsAppMessage } from '../whatsapp/sender.js';
 import { credentialsFromTenant } from '../whatsapp/index.js';
 import { handleGreeting } from './flows/greeting.js';
-import { startBooking, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
+import { startBooking, startBookingWithEntities, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
 import { startCancel, handleCancelSelection } from './flows/cancel.js';
 import { handleMyAppointments } from './flows/my-appointments.js';
-import { detectIntent } from './ai-fallback.js';
+import { normalizeMessage } from './ai-fallback.js';
 import { normalizePhone } from '../utils/phone.js';
+import { dayjs } from '../utils/date.js';
 
 interface IncomingMessage {
   phoneNumberId: string;
@@ -82,7 +83,7 @@ export async function handleTestMessage(tenantId: string, phone: string, text: s
 }
 
 async function routeMessage(session: Session, text: string): Promise<string> {
-  // If we're in a flow, route to the appropriate handler
+  // In an active flow: dedicated handlers parse the input deterministically (no AI needed).
   switch (session.state) {
     case 'SELECT_SERVICE':
       return handleServiceSelection(session, text);
@@ -96,72 +97,52 @@ async function routeMessage(session: Session, text: string): Promise<string> {
       return handleCancelSelection(session, text);
   }
 
-  // IDLE state - detect intent via pattern matching
-  const intent = detectPatternIntent(text);
+  // IDLE state — fast path for keypad-style replies (no AI cost / latency).
+  const numeric = detectNumericChoice(text);
+  if (numeric === 'book') return startBooking(session);
+  if (numeric === 'cancel') return startCancel(session);
+  if (numeric === 'list') return handleMyAppointments(session);
 
-  switch (intent) {
-    case 'greeting':
-      return handleGreeting(session);
-    case 'book':
-      return startBooking(session);
-    case 'cancel':
-      return startCancel(session);
-    case 'list':
-      return handleMyAppointments(session);
-  }
-
-  // Pattern matching failed - try AI
+  // Everything else: use the AI normalizer to extract intent + entities.
   const [tenant] = await db.select().from(schema.tenants)
     .where(eq(schema.tenants.id, session.tenantId));
-
   const services = await db.select().from(schema.services)
-    .where(eq(schema.services.tenantId, session.tenantId));
+    .where(and(
+      eq(schema.services.tenantId, session.tenantId),
+      eq(schema.services.isActive, true),
+    ));
 
-  const businessContext = `עסק: ${tenant?.name}. שירותים: ${services.map(s => s.name).join(', ')}`;
+  const tz = tenant?.timezone || 'Asia/Jerusalem';
+  const n = await normalizeMessage(text, {
+    businessName: tenant?.name || '',
+    serviceNames: services.map(s => s.name),
+    todayIso: dayjs().tz(tz).format('YYYY-MM-DD'),
+  });
 
-  const aiResult = await detectIntent(text, businessContext);
-
-  switch (aiResult.intent) {
+  switch (n.intent) {
     case 'greeting':
       return handleGreeting(session);
     case 'book':
-      return startBooking(session);
+      return startBookingWithEntities(session, n);
     case 'cancel':
       return startCancel(session);
     case 'list':
       return handleMyAppointments(session);
-  }
-
-  // Completely unknown
-  return `לא הבנתי 😅
+    default:
+      return `לא הבנתי 😅
 אפשר לנסות:
 1️⃣ קביעת תור
 2️⃣ ביטול תור
 3️⃣ התורים שלי`;
+  }
 }
 
-type Intent = 'greeting' | 'book' | 'cancel' | 'list' | null;
+type NumericChoice = 'book' | 'cancel' | 'list' | null;
 
-function detectPatternIntent(text: string): Intent {
-  // List first — most specific phrases ("התורים שלי" wins over generic "תור")
-  if (/תורים שלי|התורים שלי|הזמנות שלי|appointments|3️⃣|^3$/.test(text)) {
-    return 'list';
-  }
-
-  // Cancel — explicit cancellation words
-  if (/ביטול|לבטל|מבטל|cancel|2️⃣|^2$/.test(text)) {
-    return 'cancel';
-  }
-
-  // Book — covers natural phrasings: "אפשר להגיע", "יש מקום", "מתי פנוי", etc.
-  if (/תור|תורים|לקבוע|להזמין|פגישה|פנוי|פנויים|זמין|מקום|להגיע|לבוא|לקפוץ|לסדר|booking|book|1️⃣|^1$/.test(text)) {
-    return 'book';
-  }
-
-  // Pure greeting — whole message is just a salutation (allow trailing punctuation/emoji)
-  if (/^(היי|הי|שלום|אהלן|אהלן\s*וסהלן|בוקר טוב|בוקר אור|ערב טוב|ערב נעים|צהריים טובים|לילה טוב|hello|hi|hey|מה נשמע|מה קורה|מה המצב|מה שלומך|מה שלומכם)[\s!?.,😊👋🙂😀🌅🌞]*$/i.test(text.trim())) {
-    return 'greeting';
-  }
-
+function detectNumericChoice(text: string): NumericChoice {
+  const t = text.trim();
+  if (/^1️⃣?$/.test(t)) return 'book';
+  if (/^2️⃣?$/.test(t)) return 'cancel';
+  if (/^3️⃣?$/.test(t)) return 'list';
   return null;
 }

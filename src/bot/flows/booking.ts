@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm';
 import { getAvailableSlots, getAvailableDates } from '../../scheduling/availability.js';
 import { createBooking, findOrCreateCustomer } from '../../scheduling/booking.js';
 import { dayjs, formatDateHebrew, parseHebrewDate, parseHebrewTime } from '../../utils/date.js';
+import type { NormalizedMessage } from '../ai-fallback.js';
 
 /** Show list of services to choose from */
 export async function startBooking(session: Session): Promise<string> {
@@ -214,6 +215,104 @@ async function getServiceDuration(session: Session): Promise<number | null> {
   const [service] = await db.select().from(schema.services)
     .where(eq(schema.services.id, session.selectedServiceId));
   return service?.durationMinutes || null;
+}
+
+/**
+ * Entity-aware booking entry point. Used when the AI normalizer extracted
+ * any combination of {service, date, time} from a single natural-language
+ * message. We skip flow steps for the entities we already have.
+ */
+export async function startBookingWithEntities(
+  session: Session,
+  n: NormalizedMessage,
+): Promise<string> {
+  const services = (await db.select().from(schema.services)
+    .where(and(
+      eq(schema.services.tenantId, session.tenantId),
+      eq(schema.services.isActive, true),
+    )))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  if (services.length === 0) return 'סליחה, אין שירותים זמינים כרגע.';
+
+  // Match service: exact, then includes
+  let service = n.serviceName ? services.find(s => s.name === n.serviceName) : undefined;
+  if (!service && n.serviceName) {
+    service = services.find(s => s.name.includes(n.serviceName!) || n.serviceName!.includes(s.name));
+  }
+  if (!service) return startBooking(session);
+
+  await updateSession(session, {
+    state: 'SELECT_DATE',
+    selectedServiceId: service.id,
+    selectedServiceName: service.name,
+  });
+
+  // Resolve date
+  const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, session.tenantId));
+  const tz = tenant?.timezone || 'Asia/Jerusalem';
+  const dateIso = resolveAiDate(n.date, tz);
+  if (!dateIso) {
+    return askDatePrompt(session.tenantId, service.durationMinutes, service.name);
+  }
+
+  const slots = await getAvailableSlots(session.tenantId, dateIso, service.durationMinutes);
+  if (slots.length === 0) {
+    return `אין תורים פנויים ב-${formatDateHebrew(dayjs(dateIso))} ל-${service.name}. בחר תאריך אחר:`;
+  }
+
+  await updateSession(session, {
+    state: 'SELECT_TIME',
+    selectedDate: dateIso,
+    availableSlots: slots.map(s => s.time),
+  });
+
+  // Resolve time
+  if (!n.time) {
+    const first = slots[0].time;
+    const last = slots[slots.length - 1].time;
+    return `📅 ${formatDateHebrew(dayjs(dateIso))}\n\nבאיזו שעה נוח לך ל-${service.name}?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${first} ל-${last})`;
+  }
+
+  const slotTimes = slots.map(s => s.time);
+  if (!slotTimes.includes(n.time)) {
+    const suggestions = findNearestSlots(n.time, slotTimes, 3);
+    return `השעה ${n.time} תפוסה 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+  }
+
+  await updateSession(session, {
+    state: 'CONFIRM_BOOKING',
+    selectedTime: n.time,
+  });
+
+  return `*אישור תור:*
+
+📋 שירות: ${service.name}
+📅 תאריך: ${formatDateHebrew(dayjs(dateIso))}
+🕐 שעה: ${n.time}
+
+לאשר? (כן/לא)`;
+}
+
+async function askDatePrompt(tenantId: string, durationMinutes: number, serviceName: string): Promise<string> {
+  const dates = await getAvailableDates(tenantId, durationMinutes, 7);
+  if (dates.length === 0) {
+    return 'סליחה, אין תורים פנויים בשבוע הקרוב. נסה שוב מאוחר יותר.';
+  }
+  const lines = dates.map((d, i) => `${i + 1}️⃣ ${formatDateHebrew(dayjs(d))}`);
+  return `בחרת: *${serviceName}*\n\nמתי נוח לך?\n${lines.join('\n')}\n\nאפשר גם לכתוב "מחר" או תאריך (25/02)`;
+}
+
+function resolveAiDate(input: string | undefined, tz: string): string | null {
+  if (!input) return null;
+  const now = dayjs().tz(tz);
+  if (input === 'today') return now.format('YYYY-MM-DD');
+  if (input === 'tomorrow') return now.add(1, 'day').format('YYYY-MM-DD');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const d = dayjs(input);
+    if (d.isValid() && !d.isBefore(now, 'day')) return input;
+  }
+  return null;
 }
 
 function timeToMinutes(t: string): number {
