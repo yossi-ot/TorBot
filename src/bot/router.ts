@@ -143,26 +143,24 @@ async function routeMessage(session: Session, text: string): Promise<string> {
 type Intent = 'greeting' | 'book' | 'cancel' | 'list' | null;
 
 function detectPatternIntent(text: string): Intent {
-  const lower = text.toLowerCase();
-
-  // Greeting
-  if (/^(היי|הי|שלום|בוקר טוב|ערב טוב|hello|hi|hey|מה נשמע|מה קורה)$/i.test(text.trim())) {
-    return 'greeting';
+  // List first — most specific phrases ("התורים שלי" wins over generic "תור")
+  if (/תורים שלי|התורים שלי|הזמנות שלי|appointments|3️⃣|^3$/.test(text)) {
+    return 'list';
   }
 
-  // Booking
-  if (/תור|לקבוע|להזמין|booking|book|1️⃣|^1$/.test(text)) {
-    return 'book';
-  }
-
-  // Cancel
-  if (/ביטול|לבטל|לשנות|cancel|2️⃣|^2$/.test(text)) {
+  // Cancel — explicit cancellation words
+  if (/ביטול|לבטל|מבטל|cancel|2️⃣|^2$/.test(text)) {
     return 'cancel';
   }
 
-  // List appointments
-  if (/תורים שלי|התורים|הזמנות|appointments|3️⃣|^3$/.test(text)) {
-    return 'list';
+  // Book — covers natural phrasings: "אפשר להגיע", "יש מקום", "מתי פנוי", etc.
+  if (/תור|תורים|לקבוע|להזמין|פגישה|פנוי|פנויים|זמין|מקום|להגיע|לבוא|לקפוץ|לסדר|booking|book|1️⃣|^1$/.test(text)) {
+    return 'book';
+  }
+
+  // Pure greeting — whole message is just a salutation (allow trailing punctuation/emoji)
+  if (/^(היי|הי|שלום|אהלן|אהלן\s*וסהלן|בוקר טוב|בוקר אור|ערב טוב|ערב נעים|צהריים טובים|לילה טוב|hello|hi|hey|מה נשמע|מה קורה|מה המצב|מה שלומך|מה שלומכם)[\s!?.,😊👋🙂😀🌅🌞]*$/i.test(text.trim())) {
+    return 'greeting';
   }
 
   return null;
