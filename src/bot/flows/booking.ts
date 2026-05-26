@@ -5,7 +5,7 @@ import { getAvailableSlots, getAvailableDates } from '../../scheduling/availabil
 import { createBooking, findOrCreateCustomer } from '../../scheduling/booking.js';
 import { dayjs, formatDateHebrew, parseHebrewDate, parseHebrewTime } from '../../utils/date.js';
 import type { NormalizedMessage } from '../ai-fallback.js';
-import { interpretService, interpretDate, interpretTime, interpretConfirm, normalizeMessage } from '../ai-fallback.js';
+import { interpretService, interpretDate, interpretTime, interpretConfirm, rescueMidFlow } from '../ai-fallback.js';
 import { handleMyAppointments } from './my-appointments.js';
 
 /** Show list of services to choose from */
@@ -56,7 +56,7 @@ export async function handleServiceSelection(session: Session, input: string): P
   }
 
   if (!service) {
-    const rescue = await rescueWithNormalizer(session, input);
+    const rescue = await rescueStuckUser(session, input, 'service');
     if (rescue) return rescue;
     return `לא הבנתי. בחר מספר בין 1 ל-${services.length}:`;
   }
@@ -150,7 +150,7 @@ export async function handleDateSelection(session: Session, input: string): Prom
   }
 
   if (!selectedDate) {
-    const rescue = await rescueWithNormalizer(session, input);
+    const rescue = await rescueStuckUser(session, input, 'date');
     if (rescue) return rescue;
     return 'לא הבנתי את התאריך. בחר מספר מהרשימה או כתוב "מחר", "היום", או תאריך כמו 25/02:';
   }
@@ -213,7 +213,7 @@ export async function handleTimeSelection(session: Session, input: string): Prom
   }
 
   if (!selectedTime) {
-    const rescue = await rescueWithNormalizer(session, input);
+    const rescue = await rescueStuckUser(session, input, 'time');
     if (rescue) return rescue;
     const samples = slots.slice(0, 3).join(', ');
     return `לא הבנתי. כתוב שעה כמו *10:30* או *14:00*\n(לדוגמה זמנים פנויים: ${samples})`;
@@ -408,54 +408,100 @@ async function askDatePrompt(tenantId: string, durationMinutes: number, serviceN
 }
 
 /**
- * Last-resort rescue when none of the in-context parsers / interpreters
- * could make sense of mid-flow input. Runs the full normalizer to detect
- * if the user is changing date, switching service, cancelling, etc.
- * Returns a response string if it rerouted, or null to fall through.
+ * Context-aware rescue for users stuck mid-flow. The AI knows what the
+ * user has already selected and what step they're on, so it can interpret
+ * things like "לא טוב מה לגבי יום שני" as a date change instead of an
+ * unrecognized time.
  */
-async function rescueWithNormalizer(session: Session, input: string): Promise<string | null> {
+async function rescueStuckUser(
+  session: Session,
+  input: string,
+  awaitingFor: 'service' | 'date' | 'time' | 'confirm',
+): Promise<string | null> {
   const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, session.tenantId));
   const services = (await db.select().from(schema.services)
     .where(and(
       eq(schema.services.tenantId, session.tenantId),
       eq(schema.services.isActive, true),
     )));
-
   const tz = tenant?.timezone || 'Asia/Jerusalem';
-  const n = await normalizeMessage(input, {
-    businessName: tenant?.name || '',
+
+  const decision = await rescueMidFlow(input, {
+    awaitingFor,
+    selectedServiceName: session.selectedServiceName,
+    selectedDate: session.selectedDate,
+    selectedTime: session.selectedTime,
     serviceNames: services.map(s => s.name),
     todayIso: dayjs().tz(tz).format('YYYY-MM-DD'),
   });
 
-  if (n.intent === 'book') {
-    // Only reroute if AI actually picked up something new — otherwise the
-    // user is just repeating themselves and the calling handler will give
-    // a help message.
-    if (!n.serviceName && !n.date && !n.time) return null;
+  switch (decision.action) {
+    case 'cancel':
+      await updateSession(session, {
+        state: 'IDLE',
+        selectedServiceId: undefined,
+        selectedServiceName: undefined,
+        selectedDate: undefined,
+        selectedTime: undefined,
+        availableSlots: undefined,
+      });
+      return 'אוקיי, ביטלתי את התהליך. כתוב "תור" כשתרצה להתחיל מחדש.';
 
-    // Keep prior selections that the new message didn't override.
-    if (!n.serviceName && session.selectedServiceName) n.serviceName = session.selectedServiceName;
-    return startBookingWithEntities(session, n);
+    case 'list':
+      return handleMyAppointments(session);
+
+    case 'change_service':
+      return startBookingWithEntities(session, {
+        intent: 'book',
+        serviceName: decision.serviceName,
+        date: session.selectedDate,
+        time: session.selectedTime,
+      });
+
+    case 'change_date':
+      return startBookingWithEntities(session, {
+        intent: 'book',
+        serviceName: session.selectedServiceName,
+        date: decision.date,
+        time: session.selectedTime,
+      });
+
+    case 'change_time':
+      return startBookingWithEntities(session, {
+        intent: 'book',
+        serviceName: session.selectedServiceName,
+        date: session.selectedDate,
+        time: decision.time,
+      });
+
+    case 'value':
+      // The caller had its specific parsers fail; if AI confidently extracted
+      // a value for the current state, re-run the flow with it as fresh input.
+      // (Handled by callers re-routing through startBookingWithEntities.)
+      if (awaitingFor === 'service') {
+        return startBookingWithEntities(session, { intent: 'book', serviceName: decision.value });
+      }
+      if (awaitingFor === 'date') {
+        return startBookingWithEntities(session, {
+          intent: 'book',
+          serviceName: session.selectedServiceName,
+          date: decision.value,
+        });
+      }
+      if (awaitingFor === 'time') {
+        return startBookingWithEntities(session, {
+          intent: 'book',
+          serviceName: session.selectedServiceName,
+          date: session.selectedDate,
+          time: decision.value,
+        });
+      }
+      // For confirm, the caller already handles yes/no — fall through.
+      return null;
+
+    default:
+      return null;
   }
-
-  if (n.intent === 'cancel') {
-    await updateSession(session, {
-      state: 'IDLE',
-      selectedServiceId: undefined,
-      selectedServiceName: undefined,
-      selectedDate: undefined,
-      selectedTime: undefined,
-      availableSlots: undefined,
-    });
-    return 'אוקיי, ביטלתי את התהליך. כתוב "תור" כשתרצה להתחיל מחדש.';
-  }
-
-  if (n.intent === 'list') {
-    return handleMyAppointments(session);
-  }
-
-  return null;
 }
 
 function resolveAiDate(input: string | undefined, tz: string): string | null {

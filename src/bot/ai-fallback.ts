@@ -171,6 +171,100 @@ export async function interpretConfirm(text: string): Promise<'yes' | 'no' | nul
   return null;
 }
 
+/**
+ * Context-aware rescue for users stuck mid-booking. Unlike normalizeMessage
+ * (which treats the input as a fresh first message), this one knows what
+ * the user already selected and what step they're on, so it can interpret
+ * complaints / re-tries like "לא טוב מה לגבי יום שני" as a date change.
+ */
+export interface MidFlowContext {
+  selectedServiceName?: string;
+  selectedDate?: string;       // YYYY-MM-DD
+  selectedTime?: string;       // HH:mm
+  awaitingFor: 'service' | 'date' | 'time' | 'confirm';
+  serviceNames: string[];
+  todayIso: string;
+}
+
+export type MidFlowDecision =
+  | { action: 'value'; value: string }
+  | { action: 'change_service'; serviceName: string }
+  | { action: 'change_date'; date: string }
+  | { action: 'change_time'; time: string }
+  | { action: 'cancel' }
+  | { action: 'list' }
+  | { action: 'unclear' };
+
+export async function rescueMidFlow(text: string, ctx: MidFlowContext): Promise<MidFlowDecision> {
+  if (!config.anthropic.apiKey) return { action: 'unclear' };
+
+  const ask = {
+    service: `שם השירות מהרשימה: ${ctx.serviceNames.join(' | ')}`,
+    date: 'תאריך (YYYY-MM-DD או today/tomorrow)',
+    time: 'שעה בפורמט HH:mm',
+    confirm: 'אישור (yes/no)',
+  }[ctx.awaitingFor];
+
+  const systemPrompt = `אתה מסייע לבוט קביעת תורים בעברית.
+
+מצב נוכחי של המשתמש:
+- שירות שנבחר: ${ctx.selectedServiceName || '(טרם נבחר)'}
+- תאריך שנבחר: ${ctx.selectedDate || '(טרם נבחר)'}
+- שעה שנבחרה: ${ctx.selectedTime || '(טרם נבחרה)'}
+- בשלב הנוכחי מצפים מהמשתמש לתת: ${ask}
+
+המשתמש כתב טקסט שלא ניתן לפרש כקלט הצפוי. נסה להבין מה הוא רוצה.
+תאריך היום: ${ctx.todayIso}.
+שירותים זמינים: ${ctx.serviceNames.join(' | ')}.
+
+החזר JSON בלבד, ללא טקסט נוסף. אחד מהפורמטים הבאים:
+
+{ "action": "value", "value": "<ערך בפורמט המתאים לשלב הנוכחי>" }
+  למשל: { "action":"value", "value":"10:30" } כשמצופה שעה, או { "action":"value", "value":"yes" } כשמצופה אישור.
+
+{ "action": "change_service", "serviceName": "<שם מהרשימה>" }
+  אם המשתמש רוצה שירות אחר.
+
+{ "action": "change_date", "date": "<YYYY-MM-DD או today/tomorrow>" }
+  אם המשתמש מזכיר תאריך אחר.
+
+{ "action": "change_time", "time": "<HH:mm>" }
+  אם המשתמש מזכיר שעה אחרת.
+
+{ "action": "cancel" }
+  אם המשתמש רוצה לבטל את התהליך.
+
+{ "action": "list" }
+  אם המשתמש שואל על התורים שלו.
+
+{ "action": "unclear" }
+  אם באמת לא ברור מה הוא רוצה.
+
+דוגמאות:
+- "לא טוב מה לגבי יום שני" → { "action":"change_date", "date":"2026-06-01" } (יום שני הבא)
+- "אני בעצם רוצה צבע" → { "action":"change_service", "serviceName":"צבע" }
+- "בוא נעשה" → { "action":"value", "value":"yes" }
+- "מאוחר בערב" → { "action":"value", "value":"19:00" }
+- "תוותר" → { "action":"cancel" }`;
+
+  try {
+    const response = await getClient().messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 100,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: text }],
+    });
+    const out = response.content[0].type === 'text' ? response.content[0].text : '';
+    const jsonMatch = out.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { action: 'unclear' };
+    const parsed = JSON.parse(jsonMatch[0]) as MidFlowDecision;
+    return parsed;
+  } catch (err) {
+    console.error('rescueMidFlow error:', err);
+    return { action: 'unclear' };
+  }
+}
+
 /** Free-form chat for cases the normalizer can't resolve. Kept for backwards compat. */
 export async function generateResponse(userMessage: string, systemPrompt: string): Promise<string> {
   if (!config.anthropic.apiKey) {
