@@ -59,26 +59,59 @@ export async function handleServiceSelection(session: Session, input: string): P
   }
 
   await updateSession(session, {
-    state: 'SELECT_DATE',
     selectedServiceId: service.id,
     selectedServiceName: service.name,
   });
 
-  // Show available dates
-  const dates = await getAvailableDates(session.tenantId, service.durationMinutes, 7);
-
-  if (dates.length === 0) {
-    await updateSession(session, { state: 'IDLE' });
-    return 'סליחה, אין תורים פנויים בשבוע הקרוב. נסה שוב מאוחר יותר.';
+  // If an earlier message already gave us a date (e.g. "תור ביום ראשון"),
+  // skip the date prompt and continue from there.
+  if (session.selectedDate) {
+    return continueAfterService(session, service);
   }
 
-  const lines = dates.map((d, i) => {
-    const date = dayjs(d);
-    return `${i + 1}️⃣ ${formatDateHebrew(date)}`;
+  await updateSession(session, { state: 'SELECT_DATE' });
+  return askDatePrompt(session.tenantId, service.durationMinutes, service.name);
+}
+
+/**
+ * After we know the service, advance through any pre-saved date/time
+ * entities that survived from the initial AI normalization.
+ */
+async function continueAfterService(
+  session: Session,
+  service: { id: string; durationMinutes: number; name: string },
+): Promise<string> {
+  const dateIso = session.selectedDate!;
+  const slots = await getAvailableSlots(session.tenantId, dateIso, service.durationMinutes);
+
+  if (slots.length === 0) {
+    await updateSession(session, { state: 'SELECT_DATE', selectedDate: undefined });
+    return `אין תורים פנויים ב-${formatDateHebrew(dayjs(dateIso))} ל-${service.name}.\nבחר תאריך אחר:`;
+  }
+
+  await updateSession(session, {
+    state: 'SELECT_TIME',
+    availableSlots: slots.map(s => s.time),
   });
 
-  return `בחרת: *${service.name}*\n\nמתי נוח לך?\n${lines.join('\n')}\n\nאפשר גם לכתוב "מחר" או תאריך (25/02)`;
+  const slotTimes = slots.map(s => s.time);
+  const preTime = session.selectedTime;
+
+  if (preTime && slotTimes.includes(preTime)) {
+    await updateSession(session, { state: 'CONFIRM_BOOKING' });
+    return `*אישור תור:*\n\n📋 שירות: ${service.name}\n📅 תאריך: ${formatDateHebrew(dayjs(dateIso))}\n🕐 שעה: ${preTime}\n\nלאשר? (כן/לא)`;
+  }
+
+  if (preTime) {
+    const suggestions = findNearestSlots(preTime, slotTimes, 3);
+    return `השעה ${preTime} תפוסה 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+  }
+
+  const first = slots[0].time;
+  const last = slots[slots.length - 1].time;
+  return `📅 ${formatDateHebrew(dayjs(dateIso))} (${service.name})\n\nבאיזו שעה נוח לך?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${first} ל-${last})`;
 }
+
 
 /** Handle date selection, show available time slots */
 export async function handleDateSelection(session: Session, input: string): Promise<string> {
@@ -207,7 +240,14 @@ export async function handleConfirmation(session: Session, input: string): Promi
   }
 
   if (negative) {
-    await updateSession(session, { state: 'IDLE' });
+    await updateSession(session, {
+      state: 'IDLE',
+      selectedServiceId: undefined,
+      selectedServiceName: undefined,
+      selectedDate: undefined,
+      selectedTime: undefined,
+      availableSlots: undefined,
+    });
     return 'התור בוטל. אם תרצה לקבוע תור חדש, פשוט כתוב "תור".';
   }
 
@@ -231,7 +271,14 @@ export async function handleConfirmation(session: Session, input: string): Promi
     session.selectedStaffId,
   );
 
-  await updateSession(session, { state: 'IDLE' });
+  await updateSession(session, {
+    state: 'IDLE',
+    selectedServiceId: undefined,
+    selectedServiceName: undefined,
+    selectedDate: undefined,
+    selectedTime: undefined,
+    availableSlots: undefined,
+  });
 
   if (!result.success) {
     return result.error || 'שגיאה בקביעת התור. נסה שוב.';
@@ -277,7 +324,20 @@ export async function startBookingWithEntities(
   if (!service && n.serviceName) {
     service = services.find(s => s.name.includes(n.serviceName!) || n.serviceName!.includes(s.name));
   }
-  if (!service) return startBooking(session);
+  if (!service) {
+    // No service yet — but remember the date/time so we can use them after
+    // the user picks a service.
+    const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, session.tenantId));
+    const tz = tenant?.timezone || 'Asia/Jerusalem';
+    const preDate = resolveAiDate(n.date, tz);
+    if (preDate || n.time) {
+      await updateSession(session, {
+        ...(preDate ? { selectedDate: preDate } : {}),
+        ...(n.time ? { selectedTime: n.time } : {}),
+      });
+    }
+    return startBooking(session);
+  }
 
   await updateSession(session, {
     state: 'SELECT_DATE',
