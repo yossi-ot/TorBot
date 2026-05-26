@@ -191,8 +191,10 @@ export type MidFlowDecision =
   | { action: 'change_service'; serviceName: string }
   | { action: 'change_date'; date: string }
   | { action: 'change_time'; time: string }
+  | { action: 'restart'; serviceName?: string; date?: string; time?: string }
   | { action: 'cancel' }
   | { action: 'list' }
+  | { action: 'greeting' }
   | { action: 'unclear' };
 
 export async function rescueMidFlow(text: string, ctx: MidFlowContext): Promise<MidFlowDecision> {
@@ -220,29 +222,39 @@ export async function rescueMidFlow(text: string, ctx: MidFlowContext): Promise<
 החזר JSON בלבד, ללא טקסט נוסף. אחד מהפורמטים הבאים:
 
 { "action": "value", "value": "<ערך בפורמט המתאים לשלב הנוכחי>" }
-  למשל: { "action":"value", "value":"10:30" } כשמצופה שעה, או { "action":"value", "value":"yes" } כשמצופה אישור.
+  כשהמשתמש נתן את הערך הצפוי בשלב הנוכחי.
 
 { "action": "change_service", "serviceName": "<שם מהרשימה>" }
-  אם המשתמש רוצה שירות אחר.
+  שינוי קל — רק שירות אחר, התאריך/שעה נשארים אם הם תקפים.
 
 { "action": "change_date", "date": "<YYYY-MM-DD או today/tomorrow>" }
-  אם המשתמש מזכיר תאריך אחר.
+  שינוי קל — רק תאריך אחר.
 
 { "action": "change_time", "time": "<HH:mm>" }
-  אם המשתמש מזכיר שעה אחרת.
+  שינוי קל — רק שעה אחרת.
+
+{ "action": "restart", "serviceName": "<אופציונלי>", "date": "<אופציונלי>", "time": "<אופציונלי>" }
+  ★ השתמש בזה אם המשתמש מגיש בקשה חדשה לחלוטין (מזכיר שירות וגם תאריך, או שנראה
+  שהוא מתחיל הכל מחדש). אל תשתמש בזה בשינוי קל של שדה אחד.
 
 { "action": "cancel" }
-  אם המשתמש רוצה לבטל את התהליך.
+  המשתמש רוצה לבטל את התהליך הנוכחי.
 
 { "action": "list" }
-  אם המשתמש שואל על התורים שלו.
+  המשתמש שואל על התורים שלו.
+
+{ "action": "greeting" }
+  ברכה ידידותית באמצע השיחה (היי, בוקר טוב, מה נשמע). לא מבקש כלום ספציפי.
 
 { "action": "unclear" }
-  אם באמת לא ברור מה הוא רוצה.
+  באמת לא ברור.
 
 דוגמאות:
-- "לא טוב מה לגבי יום שני" → { "action":"change_date", "date":"2026-06-01" } (יום שני הבא)
+- "לא טוב מה לגבי יום שני" → { "action":"change_date", "date":"<יום שני הבא>" }
 - "אני בעצם רוצה צבע" → { "action":"change_service", "serviceName":"צבע" }
+- "יש לכם זמן ביום ראשון בערב לתספורת" → { "action":"restart", "serviceName":"תספורת גברים", "date":"<ראשון הבא>" }
+- "תור לצבע מחר ב-14:00" → { "action":"restart", "serviceName":"צבע", "date":"tomorrow", "time":"14:00" }
+- "בוקר טוב" / "מה קורה" → { "action":"greeting" }
 - "בוא נעשה" → { "action":"value", "value":"yes" }
 - "מאוחר בערב" → { "action":"value", "value":"19:00" }
 - "תוותר" → { "action":"cancel" }`;

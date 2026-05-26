@@ -246,6 +246,12 @@ export async function handleConfirmation(session: Session, input: string): Promi
     if (ai === 'no') negative = true;
   }
 
+  // Last resort: maybe the user is changing topic entirely
+  if (!positive && !negative) {
+    const rescue = await rescueStuckUser(session, input, 'confirm');
+    if (rescue) return rescue;
+  }
+
   if (negative) {
     await updateSession(session, {
       state: 'IDLE',
@@ -437,33 +443,47 @@ async function rescueStuckUser(
 
   switch (decision.action) {
     case 'cancel':
-      await updateSession(session, {
-        state: 'IDLE',
-        selectedServiceId: undefined,
-        selectedServiceName: undefined,
-        selectedDate: undefined,
-        selectedTime: undefined,
-        availableSlots: undefined,
-      });
+      await clearBookingSession(session);
       return 'אוקיי, ביטלתי את התהליך. כתוב "תור" כשתרצה להתחיל מחדש.';
 
     case 'list':
       return handleMyAppointments(session);
 
-    case 'change_service':
+    case 'greeting':
+      return `${pickGreetingReply()} 😊\n\n${rePromptForStep(awaitingFor, session)}`;
+
+    case 'restart':
+      // Fresh booking request — wipe session and start with whatever entities AI surfaced.
+      await clearBookingSession(session);
       return startBookingWithEntities(session, {
         intent: 'book',
         serviceName: decision.serviceName,
-        date: session.selectedDate,
-        time: session.selectedTime,
+        date: decision.date,
+        time: decision.time,
+      });
+
+    case 'change_service':
+      // Service change invalidates date+time (slots differ per service).
+      await updateSession(session, {
+        selectedDate: undefined,
+        selectedTime: undefined,
+        availableSlots: undefined,
+      });
+      return startBookingWithEntities(session, {
+        intent: 'book',
+        serviceName: decision.serviceName,
       });
 
     case 'change_date':
+      // Date change invalidates time (slots differ per date).
+      await updateSession(session, {
+        selectedTime: undefined,
+        availableSlots: undefined,
+      });
       return startBookingWithEntities(session, {
         intent: 'book',
         serviceName: session.selectedServiceName,
         date: decision.date,
-        time: session.selectedTime,
       });
 
     case 'change_time':
@@ -475,9 +495,6 @@ async function rescueStuckUser(
       });
 
     case 'value':
-      // The caller had its specific parsers fail; if AI confidently extracted
-      // a value for the current state, re-run the flow with it as fresh input.
-      // (Handled by callers re-routing through startBookingWithEntities.)
       if (awaitingFor === 'service') {
         return startBookingWithEntities(session, { intent: 'book', serviceName: decision.value });
       }
@@ -496,11 +513,45 @@ async function rescueStuckUser(
           time: decision.value,
         });
       }
-      // For confirm, the caller already handles yes/no — fall through.
       return null;
 
     default:
       return null;
+  }
+}
+
+async function clearBookingSession(session: Session): Promise<void> {
+  await updateSession(session, {
+    state: 'IDLE',
+    selectedServiceId: undefined,
+    selectedServiceName: undefined,
+    selectedDate: undefined,
+    selectedTime: undefined,
+    availableSlots: undefined,
+  });
+}
+
+function pickGreetingReply(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'בוקר טוב';
+  if (hour < 17) return 'צהריים טובים';
+  if (hour < 21) return 'ערב טוב';
+  return 'לילה טוב';
+}
+
+function rePromptForStep(
+  awaitingFor: 'service' | 'date' | 'time' | 'confirm',
+  session: Session,
+): string {
+  switch (awaitingFor) {
+    case 'service':
+      return 'איזה שירות מעניין אותך? (כתוב שם או מספר מהרשימה)';
+    case 'date':
+      return `בחזרה לתור — מתי נוח לך${session.selectedServiceName ? ` ל-${session.selectedServiceName}` : ''}? כתוב "מחר" או תאריך.`;
+    case 'time':
+      return `בחזרה לתור${session.selectedDate ? ` ב-${formatDateHebrew(dayjs(session.selectedDate))}` : ''} — באיזו שעה נוח לך?`;
+    case 'confirm':
+      return 'לאשר את התור? (כן/לא)';
   }
 }
 
