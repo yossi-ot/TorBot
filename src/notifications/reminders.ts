@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { db, schema } from '../db/index.js';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { sendWhatsAppMessage } from '../whatsapp/sender.js';
+import { credentialsFromTenant } from '../whatsapp/index.js';
 import { dayjs, formatDateHebrew } from '../utils/date.js';
 
 /**
@@ -29,8 +30,10 @@ async function sendReminders() {
     customerPhone: schema.customers.phone,
     tenantId: schema.appointments.tenantId,
     tenantName: schema.tenants.name,
-    phoneNumberId: schema.tenants.whatsappPhoneNumberId,
-    accessToken: schema.tenants.whatsappAccessToken,
+    whatsappProvider: schema.tenants.whatsappProvider,
+    whatsappPhoneNumberId: schema.tenants.whatsappPhoneNumberId,
+    whatsappAccessToken: schema.tenants.whatsappAccessToken,
+    dialog360ApiKey: schema.tenants.dialog360ApiKey,
   })
     .from(schema.appointments)
     .innerJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
@@ -48,9 +51,10 @@ async function sendReminders() {
     const message = `⏰ תזכורת מ-*${appt.tenantName}*:\n\nיש לך תור ל-${appt.serviceName} ${formatDateHebrew(startDate)} בשעה ${startDate.format('HH:mm')}.\n\nנתראה! 😊`;
 
     try {
+      const { provider, credentials } = credentialsFromTenant(appt);
       await sendWhatsAppMessage({
-        phoneNumberId: appt.phoneNumberId,
-        accessToken: appt.accessToken,
+        provider,
+        credentials,
         to: appt.customerPhone,
         text: message,
       });

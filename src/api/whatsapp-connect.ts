@@ -188,14 +188,26 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
   app.get('/api/whatsapp/status', async (request) => {
     const tenantId = (request as any).tenantId;
     const [tenant] = await db.select({
+      provider: schema.tenants.whatsappProvider,
       phoneNumberId: schema.tenants.whatsappPhoneNumberId,
       wabaId: schema.tenants.wabaId,
       accessToken: schema.tenants.whatsappAccessToken,
       tokenExpiresAt: schema.tenants.tokenExpiresAt,
+      dialog360ApiKey: schema.tenants.dialog360ApiKey,
     }).from(schema.tenants)
       .where(eq(schema.tenants.id, tenantId));
 
     if (!tenant) return { connected: false };
+
+    // 360dialog short-circuit: no WABA discovery, no token expiry.
+    if (tenant.provider === 'dialog360') {
+      const hasPhone = !!(tenant.phoneNumberId && tenant.phoneNumberId.length > 0);
+      return {
+        connected: hasPhone && !!tenant.dialog360ApiKey,
+        provider: 'dialog360',
+        phoneNumberId: tenant.phoneNumberId || null,
+      };
+    }
 
     const hasWaba = !!(tenant.wabaId && tenant.wabaId.length > 0);
     const hasPhone = !!(tenant.phoneNumberId && tenant.phoneNumberId.length > 0);
@@ -243,12 +255,60 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
     const tenantId = (request as any).tenantId;
     await db.update(schema.tenants)
       .set({
+        whatsappProvider: 'meta',
         wabaId: '',
         whatsappPhoneNumberId: '',
         whatsappAccessToken: '',
         tokenExpiresAt: null,
+        dialog360ApiKey: null,
       })
       .where(eq(schema.tenants.id, tenantId));
     return { ok: true };
+  });
+
+  // ---- 360dialog onboarding ----
+  // Tenant pastes the D360 API key they received from 360dialog Hub.
+  // We fetch the phone number from their API to populate routing.
+  app.post('/api/whatsapp/dialog360/connect', async (request, reply) => {
+    const tenantId = (request as any).tenantId;
+    const body = request.body as { apiKey?: string };
+
+    if (!body.apiKey || body.apiKey.length < 10) {
+      return reply.code(400).send({ error: 'Missing or invalid 360dialog API key' });
+    }
+
+    try {
+      // Fetch the phone number bound to this API key.
+      const phonesRes = await fetch('https://waba-v2.360dialog.io/phone_numbers', {
+        headers: { 'D360-API-KEY': body.apiKey },
+      });
+      if (!phonesRes.ok) {
+        const err = await phonesRes.text();
+        return reply.code(400).send({ error: `360dialog rejected API key: ${err}` });
+      }
+      const phones = await phonesRes.json() as { data?: { id: string; display_phone_number: string }[] };
+      const phoneNumberId = phones.data?.[0]?.id || '';
+      const displayPhone = phones.data?.[0]?.display_phone_number || '';
+
+      if (!phoneNumberId) {
+        return reply.code(400).send({ error: 'No phone number bound to this 360dialog API key yet' });
+      }
+
+      await db.update(schema.tenants)
+        .set({
+          whatsappProvider: 'dialog360',
+          whatsappPhoneNumberId: phoneNumberId,
+          dialog360ApiKey: body.apiKey,
+          // Meta-specific fields left as-is (or empty) so we can switch back later.
+          whatsappAccessToken: '',
+          tokenExpiresAt: null,
+        })
+        .where(eq(schema.tenants.id, tenantId));
+
+      return { ok: true, provider: 'dialog360', phoneNumberId, displayPhone };
+    } catch (err: any) {
+      console.error('360dialog connect error:', err);
+      return reply.code(500).send({ error: err.message || 'Connection failed' });
+    }
   });
 }

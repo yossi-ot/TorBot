@@ -2,6 +2,7 @@ import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import { getSession, createSession, Session } from './session.js';
 import { sendWhatsAppMessage } from '../whatsapp/sender.js';
+import { credentialsFromTenant } from '../whatsapp/index.js';
 import { handleGreeting } from './flows/greeting.js';
 import { startBooking, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
 import { startCancel, handleCancelSelection } from './flows/cancel.js';
@@ -40,9 +41,10 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   const response = await routeMessage(session, msg.text.trim());
 
   try {
+    const { provider, credentials } = credentialsFromTenant(tenant);
     await sendWhatsAppMessage({
-      phoneNumberId: tenant.whatsappPhoneNumberId,
-      accessToken: tenant.whatsappAccessToken,
+      provider,
+      credentials,
       to: msg.from,
       text: response,
     });
