@@ -5,6 +5,7 @@ import { getAvailableSlots, getAvailableDates } from '../../scheduling/availabil
 import { createBooking, findOrCreateCustomer } from '../../scheduling/booking.js';
 import { dayjs, formatDateHebrew, parseHebrewDate, parseHebrewTime } from '../../utils/date.js';
 import type { NormalizedMessage } from '../ai-fallback.js';
+import { interpretService, interpretDate, interpretTime, interpretConfirm } from '../ai-fallback.js';
 
 /** Show list of services to choose from */
 export async function startBooking(session: Session): Promise<string> {
@@ -47,6 +48,12 @@ export async function handleServiceSelection(session: Session, input: string): P
     ) || null;
   }
 
+  // AI fallback for natural phrasings like "תספורת רגילה" or "בא לי צבע"
+  if (!service) {
+    const aiName = await interpretService(input, services.map(s => s.name));
+    if (aiName) service = services.find(s => s.name === aiName) || null;
+  }
+
   if (!service) {
     return `לא הבנתי. בחר מספר בין 1 ל-${services.length}:`;
   }
@@ -87,13 +94,23 @@ export async function handleDateSelection(session: Session, input: string): Prom
   }
 
   // Try Hebrew date parsing
+  const [tenant] = await db.select().from(schema.tenants)
+    .where(eq(schema.tenants.id, session.tenantId));
+  const tz = tenant?.timezone || 'Asia/Jerusalem';
+
   if (!selectedDate) {
-    const [tenant] = await db.select().from(schema.tenants)
-      .where(eq(schema.tenants.id, session.tenantId));
-    const parsed = parseHebrewDate(input, tenant?.timezone || 'Asia/Jerusalem');
+    const parsed = parseHebrewDate(input, tz);
     if (parsed) {
       selectedDate = parsed.format('YYYY-MM-DD');
     }
+  }
+
+  // AI fallback for "בעוד שלושה ימים" / "סוף השבוע" / etc.
+  if (!selectedDate) {
+    const aiDate = await interpretDate(input, dayjs().tz(tz).format('YYYY-MM-DD'));
+    if (aiDate === 'today') selectedDate = dayjs().tz(tz).format('YYYY-MM-DD');
+    else if (aiDate === 'tomorrow') selectedDate = dayjs().tz(tz).add(1, 'day').format('YYYY-MM-DD');
+    else if (aiDate) selectedDate = aiDate;
   }
 
   if (!selectedDate) {
@@ -145,6 +162,18 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     }
   }
 
+  // AI fallback for "מאוחר בערב" / "סביבות עשר"
+  if (!selectedTime) {
+    const aiTime = await interpretTime(input, slots);
+    if (aiTime && slots.includes(aiTime)) {
+      selectedTime = aiTime;
+    } else if (aiTime) {
+      // Time understood but not exactly available — suggest nearest
+      const suggestions = findNearestSlots(aiTime, slots, 3);
+      return `${aiTime} לא פנוי 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+    }
+  }
+
   if (!selectedTime) {
     const samples = slots.slice(0, 3).join(', ');
     return `לא הבנתי. כתוב שעה כמו *10:30* או *14:00*\n(לדוגמה זמנים פנויים: ${samples})`;
@@ -166,8 +195,16 @@ export async function handleTimeSelection(session: Session, input: string): Prom
 
 /** Handle booking confirmation */
 export async function handleConfirmation(session: Session, input: string): Promise<string> {
-  const positive = /^(כן|אישור|בטח|yes|1|אשר|מאשר)$/i.test(input.trim());
-  const negative = /^(לא|ביטול|no|2|cancel)$/i.test(input.trim());
+  const trimmed = input.trim();
+  let positive = /^(כן|אישור|בטח|yes|1|אשר|מאשר|אוקיי|אוקי|סבבה|בסדר|טוב)$/i.test(trimmed);
+  let negative = /^(לא|ביטול|no|2|cancel|עזוב|תוותר)$/i.test(trimmed);
+
+  // AI fallback for less common phrasings like "תאשר בבקשה" or "בוא נעשה"
+  if (!positive && !negative) {
+    const ai = await interpretConfirm(input);
+    if (ai === 'yes') positive = true;
+    if (ai === 'no') negative = true;
+  }
 
   if (negative) {
     await updateSession(session, { state: 'IDLE' });

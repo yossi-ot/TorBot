@@ -88,6 +88,89 @@ export async function normalizeMessage(
   }
 }
 
+/**
+ * Mid-flow micro-interpreters. Called only when the deterministic parser
+ * fails in a specific state, so the prompts are tiny and the cost is low
+ * (~0.06 agorot per call).
+ */
+
+async function interpretWithPrompt(systemPrompt: string, userMessage: string): Promise<string> {
+  if (!config.anthropic.apiKey) return 'unclear';
+  try {
+    const response = await getClient().messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 20,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    return text.trim().replace(/[."'`]/g, '');
+  } catch (err) {
+    console.error('AI interpret error:', err);
+    return 'unclear';
+  }
+}
+
+/** Returns one of the service names from the list, or null. */
+export async function interpretService(text: string, serviceNames: string[]): Promise<string | null> {
+  const result = await interpretWithPrompt(
+    `המשתמש בוחר שירות מהרשימה הבאה: ${serviceNames.join(' | ')}.
+החזר את שם השירות בדיוק כמו ברשימה, או "unclear" אם לא ברור.
+החזר רק את השם או "unclear", ללא טקסט נוסף.`,
+    text,
+  );
+  if (result === 'unclear') return null;
+  return serviceNames.find(n => n === result) || null;
+}
+
+/** Returns YYYY-MM-DD, 'today', 'tomorrow', or null. */
+export async function interpretDate(text: string, todayIso: string): Promise<string | null> {
+  const result = await interpretWithPrompt(
+    `תאריך היום: ${todayIso} (אזור זמן ישראל).
+המשתמש בוחר תאריך לתור.
+החזר את התאריך כ-YYYY-MM-DD או 'today' או 'tomorrow', או "unclear".
+החזר רק את הערך, ללא טקסט נוסף.`,
+    text,
+  );
+  if (result === 'unclear') return null;
+  if (result === 'today' || result === 'tomorrow') return result;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(result)) return result;
+  return null;
+}
+
+/** Returns HH:mm in 24h, or null. */
+export async function interpretTime(text: string, availableTimes: string[]): Promise<string | null> {
+  const sample = availableTimes.slice(0, 5).join(', ');
+  const result = await interpretWithPrompt(
+    `המשתמש בוחר שעה לתור. דוגמאות לשעות פנויות: ${sample}.
+החזר את השעה בפורמט HH:mm (24 שעות), או "unclear".
+"עשר בערב" = 22:00. "עשר בבוקר" = 10:00. "מאוחר בערב" = 19:00 (השעה האחרונה הסבירה).
+החזר רק את השעה או "unclear", ללא טקסט נוסף.`,
+    text,
+  );
+  if (result === 'unclear') return null;
+  if (/^\d{1,2}:\d{2}$/.test(result)) {
+    const [h, m] = result.split(':').map(Number);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  return null;
+}
+
+/** Returns 'yes', 'no', or null. */
+export async function interpretConfirm(text: string): Promise<'yes' | 'no' | null> {
+  const result = await interpretWithPrompt(
+    `המשתמש מתבקש לאשר פעולה (כן/לא).
+החזר 'yes' אם הוא מאשר, 'no' אם הוא מבטל/דוחה, או 'unclear'.
+דוגמאות לכן: "תאשר", "בסדר", "בוא נעשה", "סבבה", "אישור", "אוקיי".
+דוגמאות ללא: "לא", "ביטול", "עזוב", "תוותר", "לא כרגע".
+החזר רק את הערך, ללא טקסט נוסף.`,
+    text,
+  );
+  if (result === 'yes') return 'yes';
+  if (result === 'no') return 'no';
+  return null;
+}
+
 /** Free-form chat for cases the normalizer can't resolve. Kept for backwards compat. */
 export async function generateResponse(userMessage: string, systemPrompt: string): Promise<string> {
   if (!config.anthropic.apiKey) {
