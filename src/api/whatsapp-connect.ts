@@ -267,8 +267,10 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
   });
 
   // ---- 360dialog onboarding ----
-  // Tenant pastes the D360 API key they received from 360dialog Hub.
-  // We fetch the phone number from their API to populate routing.
+  // Tenant pastes the D360 API key. We try multiple 360dialog endpoints
+  // (sandbox V1 + cloud V2) to discover the phone_number_id. If none work,
+  // we still save the key — phone_number_id will be auto-assigned from the
+  // first incoming webhook.
   app.post('/api/whatsapp/dialog360/connect', async (request, reply) => {
     const tenantId = (request as any).tenantId;
     const body = request.body as { apiKey?: string };
@@ -277,38 +279,60 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Missing or invalid 360dialog API key' });
     }
 
-    try {
-      // Fetch the phone number bound to this API key.
-      const phonesRes = await fetch('https://waba-v2.360dialog.io/phone_numbers', {
-        headers: { 'D360-API-KEY': body.apiKey },
-      });
-      if (!phonesRes.ok) {
-        const err = await phonesRes.text();
-        return reply.code(400).send({ error: `360dialog rejected API key: ${err}` });
+    const attempts: { url: string; status: number; body: string }[] = [];
+    let phoneNumberId = '';
+    let displayPhone = '';
+
+    const endpoints = [
+      'https://waba-v2.360dialog.io/v1/configs/phone_numbers',
+      'https://waba-sandbox.360dialog.io/v1/configs/phone_numbers',
+      'https://waba.360dialog.io/v1/configs/phone_numbers',
+      'https://waba-v2.360dialog.io/phone_numbers',
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { headers: { 'D360-API-KEY': body.apiKey } });
+        const text = await res.text();
+        attempts.push({ url, status: res.status, body: text.slice(0, 200) });
+        if (!res.ok) continue;
+        const parsed = JSON.parse(text);
+        const candidate = parsed?.data?.[0] || parsed?.phone_numbers?.[0] || parsed;
+        const id = candidate?.id || candidate?.phone_number_id || '';
+        const disp = candidate?.display_phone_number || candidate?.phone || '';
+        if (id) {
+          phoneNumberId = String(id);
+          displayPhone = String(disp);
+          break;
+        }
+      } catch (err: any) {
+        attempts.push({ url, status: 0, body: err.message || 'fetch failed' });
       }
-      const phones = await phonesRes.json() as { data?: { id: string; display_phone_number: string }[] };
-      const phoneNumberId = phones.data?.[0]?.id || '';
-      const displayPhone = phones.data?.[0]?.display_phone_number || '';
-
-      if (!phoneNumberId) {
-        return reply.code(400).send({ error: 'No phone number bound to this 360dialog API key yet' });
-      }
-
-      await db.update(schema.tenants)
-        .set({
-          whatsappProvider: 'dialog360',
-          whatsappPhoneNumberId: phoneNumberId,
-          dialog360ApiKey: body.apiKey,
-          // Meta-specific fields left as-is (or empty) so we can switch back later.
-          whatsappAccessToken: '',
-          tokenExpiresAt: null,
-        })
-        .where(eq(schema.tenants.id, tenantId));
-
-      return { ok: true, provider: 'dialog360', phoneNumberId, displayPhone };
-    } catch (err: any) {
-      console.error('360dialog connect error:', err);
-      return reply.code(500).send({ error: err.message || 'Connection failed' });
     }
+
+    // Save the key even if we couldn't auto-discover phone_number_id —
+    // webhook handler will fill it in on the first incoming message.
+    await db.update(schema.tenants)
+      .set({
+        whatsappProvider: 'dialog360',
+        whatsappPhoneNumberId: phoneNumberId,
+        dialog360ApiKey: body.apiKey,
+        whatsappAccessToken: '',
+        tokenExpiresAt: null,
+      })
+      .where(eq(schema.tenants.id, tenantId));
+
+    if (phoneNumberId) {
+      return { ok: true, provider: 'dialog360', phoneNumberId, displayPhone };
+    }
+
+    return {
+      ok: true,
+      provider: 'dialog360',
+      phoneNumberId: null,
+      displayPhone: '',
+      note: 'API key saved. Phone number ID will be auto-assigned from the first incoming WhatsApp message.',
+      diagnostics: attempts,
+    };
   });
 }

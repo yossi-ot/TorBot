@@ -24,9 +24,28 @@ async function findTenant(phoneNumberId: string) {
   return tenant;
 }
 
+/**
+ * Auto-assign phone_number_id to a freshly-onboarded 360dialog tenant that
+ * doesn't have one yet. Only safe when exactly one such tenant exists.
+ */
+async function autoAssignDialog360Tenant(phoneNumberId: string) {
+  const pendings = await db.select().from(schema.tenants)
+    .where(eq(schema.tenants.whatsappProvider, 'dialog360'));
+  const candidates = pendings.filter(t => !t.whatsappPhoneNumberId || t.whatsappPhoneNumberId.length === 0);
+  if (candidates.length !== 1) return undefined;
+  const [t] = candidates;
+  await db.update(schema.tenants)
+    .set({ whatsappPhoneNumberId: phoneNumberId })
+    .where(eq(schema.tenants.id, t.id));
+  console.log(`Auto-assigned phone_number_id=${phoneNumberId} to tenant ${t.id}`);
+  return { ...t, whatsappPhoneNumberId: phoneNumberId };
+}
+
 /** Main message handler */
 export async function handleIncomingMessage(msg: IncomingMessage): Promise<void> {
-  const tenant = await findTenant(msg.phoneNumberId);
+  const tenant =
+    (await findTenant(msg.phoneNumberId)) ??
+    (await autoAssignDialog360Tenant(msg.phoneNumberId));
   if (!tenant) {
     console.warn(`No tenant found for phone_number_id: ${msg.phoneNumberId}`);
     return;
