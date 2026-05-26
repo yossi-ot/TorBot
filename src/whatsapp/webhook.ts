@@ -30,6 +30,7 @@ export function registerWebhookRoutes(app: FastifyInstance) {
         from: msg.from,
         text: msg.text,
         contactName: msg.contactName,
+        messageId: msg.messageId,
       }).catch(err => console.error('Error handling message:', err));
     }
 

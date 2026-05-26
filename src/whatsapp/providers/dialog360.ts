@@ -2,6 +2,7 @@ import type {
   WhatsAppProvider,
   SendTextOptions,
   SendTemplateOptions,
+  SendTypingIndicatorOptions,
   IncomingMessage,
 } from '../provider.js';
 
@@ -102,6 +103,34 @@ export const dialog360Provider: WhatsAppProvider = {
         }] : undefined,
       },
     }), '360dialog template');
+  },
+
+  async sendTypingIndicator(opts: SendTypingIndicatorOptions) {
+    const c = opts.credentials;
+    if (c.kind !== 'dialog360') return;
+    // 360dialog passes the Meta payload through unchanged. Try each known host
+    // until one accepts. Failures are non-fatal — the user just won't see "...".
+    const payload = JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: opts.messageId,
+      typing_indicator: { type: 'text' },
+    });
+    for (const url of [
+      'https://waba-sandbox.360dialog.io/v1/messages',
+      'https://waba-v2.360dialog.io/messages',
+    ]) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'D360-API-KEY': c.apiKey, 'Content-Type': 'application/json' },
+          body: payload,
+        });
+        if (res.ok) return;
+      } catch {
+        // try next host
+      }
+    }
   },
 
   parseIncoming(body: unknown): IncomingMessage[] {

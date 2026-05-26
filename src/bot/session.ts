@@ -21,6 +21,8 @@ export interface Session {
   selectedStaffId?: string;
   availableSlots?: string[];   // list of HH:mm
   appointmentIdToCancel?: string;
+  /** The last response the bot sent — used as conversational context for the agent. */
+  lastBotMessage?: string;
   lastActivity: number;
 }
 
@@ -40,6 +42,7 @@ function sessionToData(session: Partial<Session>): string {
   if (session.selectedStaffId !== undefined) data.selectedStaffId = session.selectedStaffId;
   if (session.availableSlots !== undefined) data.availableSlots = session.availableSlots;
   if (session.appointmentIdToCancel !== undefined) data.appointmentIdToCancel = session.appointmentIdToCancel;
+  if (session.lastBotMessage !== undefined) data.lastBotMessage = session.lastBotMessage;
   return JSON.stringify(data);
 }
 
@@ -59,6 +62,7 @@ function rowToSession(row: typeof schema.sessions.$inferSelect): Session {
     ...(data.selectedStaffId !== undefined && { selectedStaffId: data.selectedStaffId as string }),
     ...(data.availableSlots !== undefined && { availableSlots: data.availableSlots as string[] }),
     ...(data.appointmentIdToCancel !== undefined && { appointmentIdToCancel: data.appointmentIdToCancel as string }),
+    ...(data.lastBotMessage !== undefined && { lastBotMessage: data.lastBotMessage as string }),
   };
 }
 

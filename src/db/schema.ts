@@ -87,6 +87,22 @@ export const sessions = pgTable('sessions', {
   lastActivity: text('last_activity').notNull(),
 });
 
+/**
+ * Short-lived holds on a (service, datetime) pair while a customer is
+ * mid-conversation. Prevents two customers from both being told a slot
+ * is available and racing each other to confirm.
+ */
+export const slotLocks = pgTable('slot_locks', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull(),
+  serviceId: text('service_id').notNull(),
+  customerPhone: text('customer_phone').notNull(),
+  startTime: text('start_time').notNull(),     // YYYY-MM-DDTHH:mm:ss
+  endTime: text('end_time').notNull(),
+  expiresAt: text('expires_at').notNull(),     // ISO timestamp, +5 min
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 export const appointments = pgTable('appointments', {
   id: text('id').primaryKey(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),

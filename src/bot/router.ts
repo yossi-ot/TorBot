@@ -1,34 +1,33 @@
 import { db, schema } from '../db/index.js';
 import { eq, and } from 'drizzle-orm';
-import { getSession, createSession, Session } from './session.js';
+import { getSession, createSession, Session, updateSession } from './session.js';
 import { sendWhatsAppMessage } from '../whatsapp/sender.js';
-import { credentialsFromTenant } from '../whatsapp/index.js';
+import { credentialsFromTenant, getProvider } from '../whatsapp/index.js';
 import { handleGreeting } from './flows/greeting.js';
 import { startBooking, startBookingWithEntities, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
 import { startCancel, handleCancelSelection } from './flows/cancel.js';
 import { handleMyAppointments } from './flows/my-appointments.js';
 import { normalizeMessage } from './ai-fallback.js';
+import { runAgent } from './agent.js';
 import { normalizePhone } from '../utils/phone.js';
 import { dayjs } from '../utils/date.js';
+import { config } from '../config.js';
 
 interface IncomingMessage {
   phoneNumberId: string;
   from: string;
   text: string;
   contactName: string;
+  /** WhatsApp message id — needed for typing indicator + read receipts */
+  messageId?: string;
 }
 
-/** Find tenant by WhatsApp phone number ID */
 async function findTenant(phoneNumberId: string) {
   const [tenant] = await db.select().from(schema.tenants)
     .where(eq(schema.tenants.whatsappPhoneNumberId, phoneNumberId));
   return tenant;
 }
 
-/**
- * Auto-assign phone_number_id to a freshly-onboarded 360dialog tenant that
- * doesn't have one yet. Only safe when exactly one such tenant exists.
- */
 async function autoAssignDialog360Tenant(phoneNumberId: string) {
   const pendings = await db.select().from(schema.tenants)
     .where(eq(schema.tenants.whatsappProvider, 'dialog360'));
@@ -42,7 +41,6 @@ async function autoAssignDialog360Tenant(phoneNumberId: string) {
   return { ...t, whatsappPhoneNumberId: phoneNumberId };
 }
 
-/** Main message handler */
 export async function handleIncomingMessage(msg: IncomingMessage): Promise<void> {
   const tenant =
     (await findTenant(msg.phoneNumberId)) ??
@@ -58,10 +56,18 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     session = await createSession(tenant.id, phone, msg.contactName);
   }
 
-  const response = await routeMessage(session, msg.text.trim());
+  const { provider, credentials } = credentialsFromTenant(tenant);
+
+  // Fire the typing indicator (and read receipt) right away so the customer
+  // sees the bot is working. Don't block on it.
+  if (msg.messageId) {
+    getProvider(provider).sendTypingIndicator?.({ credentials, messageId: msg.messageId })
+      .catch(err => console.warn('Typing indicator failed:', err));
+  }
+
+  const response = await routeMessage(session, tenant, msg.text.trim());
 
   try {
-    const { provider, credentials } = credentialsFromTenant(tenant);
     await sendWhatsAppMessage({
       provider,
       credentials,
@@ -73,17 +79,67 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   }
 }
 
-/** Direct message handler for testing - returns the response text */
 export async function handleTestMessage(tenantId: string, phone: string, text: string, contactName: string): Promise<string> {
   let session = await getSession(tenantId, phone);
-  if (!session) {
-    session = await createSession(tenantId, phone, contactName);
-  }
-  return routeMessage(session, text.trim());
+  if (!session) session = await createSession(tenantId, phone, contactName);
+  const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, tenantId));
+  return routeMessage(session, tenant!, text.trim());
 }
 
-async function routeMessage(session: Session, text: string): Promise<string> {
-  // In an active flow: dedicated handlers parse the input deterministically (no AI needed).
+async function routeMessage(session: Session, tenant: typeof schema.tenants.$inferSelect, text: string): Promise<string> {
+  // Numbered choices always go through the fast path (free, instant).
+  if (session.state === 'IDLE') {
+    const numeric = detectNumericChoice(text);
+    if (numeric === 'book') return startBooking(session);
+    if (numeric === 'cancel') return startCancel(session);
+    if (numeric === 'list') return handleMyAppointments(session);
+  }
+
+  // Primary path: conversational AI agent
+  if (config.anthropic.apiKey) {
+    try {
+      const result = await runAgent({
+        ctx: {
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          tenantTimezone: tenant.timezone,
+          cancellationPolicy: tenant.cancellationPolicy,
+          address: tenant.address,
+          customerPhone: session.customerPhone,
+          customerName: session.customerName,
+        },
+        state: {
+          selectedServiceName: session.selectedServiceName,
+          selectedDate: session.selectedDate,
+          selectedTime: session.selectedTime,
+          lastBotMessage: session.lastBotMessage,
+        },
+        userMessage: text,
+      });
+
+      await updateSession(session, {
+        state: 'IDLE',
+        selectedServiceName: result.stateUpdates.selectedServiceName,
+        selectedDate: result.stateUpdates.selectedDate,
+        selectedTime: result.stateUpdates.selectedTime,
+        lastBotMessage: result.stateUpdates.lastBotMessage,
+      });
+
+      return result.reply;
+    } catch (err: any) {
+      if (err.message === 'AGENT_NO_API_KEY') {
+        // expected — fall through to state machine
+      } else {
+        console.error('Agent error, falling back to state machine:', err);
+      }
+    }
+  }
+
+  // Fallback path: legacy deterministic state machine
+  return routeWithStateMachine(session, text);
+}
+
+async function routeWithStateMachine(session: Session, text: string): Promise<string> {
   switch (session.state) {
     case 'SELECT_SERVICE':
       return handleServiceSelection(session, text);
@@ -97,13 +153,6 @@ async function routeMessage(session: Session, text: string): Promise<string> {
       return handleCancelSelection(session, text);
   }
 
-  // IDLE state — fast path for keypad-style replies (no AI cost / latency).
-  const numeric = detectNumericChoice(text);
-  if (numeric === 'book') return startBooking(session);
-  if (numeric === 'cancel') return startCancel(session);
-  if (numeric === 'list') return handleMyAppointments(session);
-
-  // Everything else: use the AI normalizer to extract intent + entities.
   const [tenant] = await db.select().from(schema.tenants)
     .where(eq(schema.tenants.id, session.tenantId));
   const services = await db.select().from(schema.services)
@@ -111,7 +160,6 @@ async function routeMessage(session: Session, text: string): Promise<string> {
       eq(schema.services.tenantId, session.tenantId),
       eq(schema.services.isActive, true),
     ));
-
   const tz = tenant?.timezone || 'Asia/Jerusalem';
   const n = await normalizeMessage(text, {
     businessName: tenant?.name || '',
@@ -129,11 +177,7 @@ async function routeMessage(session: Session, text: string): Promise<string> {
     case 'list':
       return handleMyAppointments(session);
     default:
-      return `לא הבנתי 😅
-אפשר לנסות:
-1️⃣ קביעת תור
-2️⃣ ביטול תור
-3️⃣ התורים שלי`;
+      return `לא הבנתי 😅\nאפשר לנסות:\n1️⃣ קביעת תור\n2️⃣ ביטול תור\n3️⃣ התורים שלי`;
   }
 }
 

@@ -33,10 +33,18 @@ export interface IncomingMessage {
   messageId: string;
 }
 
+export interface SendTypingIndicatorOptions {
+  credentials: ProviderCredentials;
+  /** The id of the inbound WhatsApp message we're replying to. */
+  messageId: string;
+}
+
 export interface WhatsAppProvider {
   readonly name: ProviderName;
   sendText(opts: SendTextOptions): Promise<void>;
   sendTemplate(opts: SendTemplateOptions): Promise<void>;
   /** Extract incoming messages from a webhook payload. Returns [] for non-message events. */
   parseIncoming(body: unknown): IncomingMessage[];
+  /** Show "..." typing indicator to the user while the bot composes a reply. Optional. */
+  sendTypingIndicator?(opts: SendTypingIndicatorOptions): Promise<void>;
 }

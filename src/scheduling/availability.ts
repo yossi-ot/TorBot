@@ -1,6 +1,7 @@
 import { db, schema } from '../db/index.js';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { dayjs } from '../utils/date.js';
+import { getActiveLocksOnDate } from './slot-locks.js';
 
 export interface TimeSlot {
   time: string;    // "09:00"
@@ -16,6 +17,8 @@ export async function getAvailableSlots(
   date: string,          // YYYY-MM-DD
   durationMinutes: number,
   staffId?: string,
+  /** When set, hides slots locked by OTHER customers but still shows ones locked by this one. */
+  excludeLocksByCustomerPhone: string = '__unknown__',
 ): Promise<TimeSlot[]> {
   const dayOfWeek = dayjs(date).day(); // 0=Sunday
 
@@ -54,6 +57,9 @@ export async function getAvailableSlots(
       gte(schema.blockedSlots.endDatetime, dateStart),
     ));
 
+  // 3b. Get active slot locks held by other customers for this date
+  const activeLocks = await getActiveLocksOnDate(tenantId, date, excludeLocksByCustomerPhone);
+
   // 4. Generate all possible slots in 30-minute intervals
   const available: TimeSlot[] = [];
   const slotInterval = 30; // minutes
@@ -83,12 +89,17 @@ export async function getAvailableSlots(
         return slotStartISO < bs.endDatetime && slotEndISO > bs.startDatetime;
       });
 
+      // Check if slot is locked by another customer
+      const isLocked = activeLocks.some(lk => {
+        return slotStartISO < lk.endTime && slotEndISO > lk.startTime;
+      });
+
       // Don't show past slots for today
       if (dayjs(date).isSame(dayjs(), 'day') && slotStart.isBefore(dayjs())) {
         continue;
       }
 
-      if (!hasConflict && !isBlocked) {
+      if (!hasConflict && !isBlocked && !isLocked) {
         available.push({
           time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
           staffId: wh.staffId || undefined,

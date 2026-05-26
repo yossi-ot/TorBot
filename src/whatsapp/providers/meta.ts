@@ -3,6 +3,7 @@ import type {
   WhatsAppProvider,
   SendTextOptions,
   SendTemplateOptions,
+  SendTypingIndicatorOptions,
   IncomingMessage,
 } from '../provider.js';
 
@@ -70,6 +71,22 @@ export const metaProvider: WhatsAppProvider = {
         },
       }),
       label: 'Meta template',
+    });
+  },
+
+  async sendTypingIndicator(opts: SendTypingIndicatorOptions) {
+    const c = opts.credentials;
+    if (c.kind !== 'meta') return;
+    await postWithRetry({
+      url: `${BASE_URL}/${c.phoneNumberId}/messages`,
+      headers: { Authorization: `Bearer ${c.accessToken}` },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: opts.messageId,
+        typing_indicator: { type: 'text' },
+      }),
+      label: 'Meta typing',
     });
   },
 
