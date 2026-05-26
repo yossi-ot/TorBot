@@ -24,6 +24,8 @@ export interface AgentState {
   selectedTime?: string;
   /** What the bot said last turn — gives Claude context for words like "השלישי" / "כן". */
   lastBotMessage?: string;
+  /** Previous user messages (oldest first), so hints like "אחרי שתיים" survive across turns. */
+  recentUserMessages?: string[];
 }
 
 export interface AgentInput {
@@ -75,6 +77,10 @@ function buildStateMessage(state: AgentState): string | null {
   if (state.selectedServiceName) parts.push(`שירות שנבחר: ${state.selectedServiceName}`);
   if (state.selectedDate) parts.push(`תאריך שנבחר: ${state.selectedDate}`);
   if (state.selectedTime) parts.push(`שעה שנבחרה: ${state.selectedTime}`);
+  if (state.recentUserMessages && state.recentUserMessages.length > 0) {
+    parts.push(`הודעות קודמות של הלקוח (ישנות → חדשות):\n${state.recentUserMessages.map(m => `- "${m}"`).join('\n')}`);
+    parts.push('שים לב: רמזים מההודעות הקודמות (כמו "אחרי שתיים", "ביום ראשון", "תספורת") עדיין רלוונטיים — שלב אותם בתגובה הנוכחית.');
+  }
   if (state.lastBotMessage) parts.push(`הודעת הבוט הקודמת: "${state.lastBotMessage}"`);
   if (parts.length === 0) return null;
   return `[הקשר נוכחי]\n${parts.join('\n')}`;

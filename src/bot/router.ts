@@ -113,9 +113,12 @@ async function routeMessage(session: Session, tenant: typeof schema.tenants.$inf
           selectedDate: session.selectedDate,
           selectedTime: session.selectedTime,
           lastBotMessage: session.lastBotMessage,
+          recentUserMessages: session.recentUserMessages,
         },
         userMessage: text,
       });
+
+      const nextRecent = [...(session.recentUserMessages || []), text].slice(-4);
 
       await updateSession(session, {
         state: 'IDLE',
@@ -123,6 +126,7 @@ async function routeMessage(session: Session, tenant: typeof schema.tenants.$inf
         selectedDate: result.stateUpdates.selectedDate,
         selectedTime: result.stateUpdates.selectedTime,
         lastBotMessage: result.stateUpdates.lastBotMessage,
+        recentUserMessages: nextRecent,
       });
 
       return result.reply;

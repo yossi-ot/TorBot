@@ -23,6 +23,8 @@ export interface Session {
   appointmentIdToCancel?: string;
   /** The last response the bot sent — used as conversational context for the agent. */
   lastBotMessage?: string;
+  /** The user's previous messages this session (oldest first, capped to keep context light). */
+  recentUserMessages?: string[];
   lastActivity: number;
 }
 
@@ -43,6 +45,7 @@ function sessionToData(session: Partial<Session>): string {
   if (session.availableSlots !== undefined) data.availableSlots = session.availableSlots;
   if (session.appointmentIdToCancel !== undefined) data.appointmentIdToCancel = session.appointmentIdToCancel;
   if (session.lastBotMessage !== undefined) data.lastBotMessage = session.lastBotMessage;
+  if (session.recentUserMessages !== undefined) data.recentUserMessages = session.recentUserMessages;
   return JSON.stringify(data);
 }
 
@@ -63,6 +66,7 @@ function rowToSession(row: typeof schema.sessions.$inferSelect): Session {
     ...(data.availableSlots !== undefined && { availableSlots: data.availableSlots as string[] }),
     ...(data.appointmentIdToCancel !== undefined && { appointmentIdToCancel: data.appointmentIdToCancel as string }),
     ...(data.lastBotMessage !== undefined && { lastBotMessage: data.lastBotMessage as string }),
+    ...(data.recentUserMessages !== undefined && { recentUserMessages: data.recentUserMessages as string[] }),
   };
 }
 
