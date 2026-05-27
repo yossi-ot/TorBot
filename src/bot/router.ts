@@ -58,14 +58,31 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
 
   const { provider, credentials } = credentialsFromTenant(tenant);
 
-  // Fire the typing indicator (and read receipt) right away so the customer
-  // sees the bot is working. Don't block on it.
+  // Try the WhatsApp-native typing indicator first (silent if BSP/sandbox
+  // doesn't support it).
   if (msg.messageId) {
     getProvider(provider).sendTypingIndicator?.({ credentials, messageId: msg.messageId })
       .catch(err => console.warn('Typing indicator failed:', err));
   }
 
-  const response = await routeMessage(session, tenant, msg.text.trim());
+  // Belt-and-suspenders: if the AI takes longer than 1.5s, send an
+  // explicit "⏳" placeholder message so the customer never sees a
+  // multi-second silence.
+  let placeholderSent = false;
+  const placeholderTimer = setTimeout(() => {
+    placeholderSent = true;
+    sendWhatsAppMessage({ provider, credentials, to: msg.from, text: '⏳' })
+      .catch(err => console.warn('Placeholder send failed:', err));
+  }, 1500);
+
+  let response: string;
+  try {
+    response = await routeMessage(session, tenant, msg.text.trim());
+  } catch (err) {
+    console.error('routeMessage error:', err);
+    response = 'משהו השתבש. תרצה לנסות שוב?';
+  }
+  clearTimeout(placeholderTimer);
 
   try {
     await sendWhatsAppMessage({
@@ -77,6 +94,7 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   } catch (err) {
     console.error(`Failed to send reply to ${msg.from}:`, err);
   }
+  void placeholderSent; // referenced for clarity even though we don't branch on it
 }
 
 export async function handleTestMessage(tenantId: string, phone: string, text: string, contactName: string): Promise<string> {

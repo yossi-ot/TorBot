@@ -218,6 +218,17 @@ async function toolLockSlot(ctx: ToolContext, args: Record<string, unknown>): Pr
     .where(and(eq(schema.services.id, serviceId), eq(schema.services.tenantId, ctx.tenantId)));
   if (!service) return { ok: false, error: 'Unknown service_id' };
 
+  // Verify the slot is actually free (appointments + blocks + other locks all considered).
+  // get_available_slots excludes existing appointments and blocked times.
+  const free = await getAvailableSlots(ctx.tenantId, date, service.durationMinutes, undefined, ctx.customerPhone);
+  if (!free.some(s => s.time === time)) {
+    return {
+      ok: false,
+      error: 'Slot not available (taken, blocked, or outside working hours)',
+      data: { available_alternatives: free.slice(0, 5).map(s => s.time) },
+    };
+  }
+
   const [h, m] = time.split(':').map(Number);
   const start = dayjs(date).hour(h).minute(m).second(0);
   const end = start.add(service.durationMinutes, 'minute');
@@ -274,13 +285,17 @@ async function toolListAppointments(ctx: ToolContext): Promise<ToolResult> {
   const appts = await getCustomerAppointments(ctx.tenantId, customerId);
   return {
     ok: true,
-    data: appts.map(a => ({
-      appointment_id: a.id,
-      service_name: a.serviceName,
-      start_time: a.startTime,
-      hebrew_date: formatDateHebrew(dayjs(a.startTime)),
-      time: dayjs(a.startTime).format('HH:mm'),
-    })),
+    data: appts.map(a => {
+      const forMatch = a.notes?.match(/^עבור\s+(.+)$/);
+      return {
+        appointment_id: a.id,
+        service_name: a.serviceName,
+        start_time: a.startTime,
+        hebrew_date: formatDateHebrew(dayjs(a.startTime)),
+        time: dayjs(a.startTime).format('HH:mm'),
+        booking_for: forMatch ? forMatch[1].trim() : null,
+      };
+    }),
   };
 }
 

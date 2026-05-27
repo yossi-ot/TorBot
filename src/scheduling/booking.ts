@@ -90,6 +90,7 @@ export async function getCustomerAppointments(tenantId: string, customerId: stri
     endTime: schema.appointments.endTime,
     status: schema.appointments.status,
     serviceName: schema.services.name,
+    notes: schema.appointments.notes,
   })
     .from(schema.appointments)
     .innerJoin(schema.services, eq(schema.appointments.serviceId, schema.services.id))
