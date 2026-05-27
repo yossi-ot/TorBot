@@ -275,6 +275,12 @@ export async function handleConfirmation(session: Session, input: string): Promi
     session.selectedStaffId,
   );
 
+  // Snapshot the booking details BEFORE we wipe the session, so the
+  // success message can quote them.
+  const bookedServiceName = session.selectedServiceName;
+  const bookedDate = session.selectedDate;
+  const bookedTime = session.selectedTime;
+
   await updateSession(session, {
     state: 'IDLE',
     selectedServiceId: undefined,
@@ -288,7 +294,7 @@ export async function handleConfirmation(session: Session, input: string): Promi
     return result.error || 'שגיאה בקביעת התור. נסה שוב.';
   }
 
-  return `התור נקבע. ${session.selectedServiceName}, ${formatDateHebrew(dayjs(session.selectedDate!))} ב-${session.selectedTime}. נשלח תזכורת שעה לפני.`;
+  return `התור נקבע. ${bookedServiceName}, ${formatDateHebrew(dayjs(bookedDate!))} ב-${bookedTime}. נשלח תזכורת שעה לפני.`;
 }
 
 async function getServiceDuration(session: Session): Promise<number | null> {
