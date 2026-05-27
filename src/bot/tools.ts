@@ -64,7 +64,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'lock_slot',
-    description: 'Reserve a slot for THIS customer for ~5 minutes so other concurrent bookings cannot grab it while you confirm. Call this BEFORE asking the user to confirm a specific time. Returns lock info on success; if another customer already locked it, returns ok=false.',
+    description: 'Reserve a slot for THIS customer for ~5 minutes so other concurrent bookings cannot grab it while you confirm. Call this BEFORE asking the user to confirm a specific time. Returns hebrew_date you should quote verbatim to the user; never compute day-of-week yourself.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -77,13 +77,17 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_appointment',
-    description: 'Finalize the booking. Call this only after the user has confirmed. Returns the created appointment id on success.',
+    description: 'Finalize the booking. Call this only after the user confirmed. Returns hebrew_date you can quote. Pass booking_for_name when the appointment is for someone else (e.g. the customer\'s child or spouse).',
     input_schema: {
       type: 'object' as const,
       properties: {
         service_id: { type: 'string' },
         date: { type: 'string', description: 'YYYY-MM-DD' },
         time: { type: 'string', description: 'HH:mm 24h' },
+        booking_for_name: {
+          type: 'string',
+          description: 'Optional. Name of the person the appointment is FOR, if different from the WhatsApp customer (e.g. their child). Stored in appointment notes and used in reminders.',
+        },
       },
       required: ['service_id', 'date', 'time'],
     },
@@ -195,7 +199,14 @@ async function toolGetAvailableSlots(ctx: ToolContext, args: Record<string, unkn
   if (!service) return { ok: false, error: 'Unknown service_id' };
 
   const slots = await getAvailableSlots(ctx.tenantId, date, service.durationMinutes, undefined, ctx.customerPhone);
-  return { ok: true, data: slots.map(s => s.time) };
+  return {
+    ok: true,
+    data: {
+      date,
+      hebrew_date: formatDateHebrew(dayjs(date)),
+      times: slots.map(s => s.time),
+    },
+  };
 }
 
 async function toolLockSlot(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {
@@ -222,22 +233,40 @@ async function toolLockSlot(ctx: ToolContext, args: Record<string, unknown>): Pr
     end.format('YYYY-MM-DDTHH:mm:ss'),
   );
   if (!lock) return { ok: false, error: 'Slot taken by another customer' };
-  return { ok: true, data: { lock_id: lock.id, expires_at: lock.expiresAt } };
+  return {
+    ok: true,
+    data: {
+      lock_id: lock.id,
+      hebrew_date: formatDateHebrew(dayjs(date)),
+      time,
+      service_name: service.name,
+    },
+  };
 }
 
 async function toolCreateAppointment(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult> {
   const serviceId = String(args.service_id);
   const date = String(args.date);
   const time = String(args.time);
+  const bookingForName = typeof args.booking_for_name === 'string' ? args.booking_for_name.trim() : '';
+  const notes = bookingForName ? `עבור ${bookingForName}` : undefined;
 
   const customerId = await findOrCreateCustomer(ctx.tenantId, ctx.customerPhone, ctx.customerName || undefined);
-  const result = await createBooking(ctx.tenantId, customerId, serviceId, date, time);
+  const result = await createBooking(ctx.tenantId, customerId, serviceId, date, time, undefined, notes);
 
   // Whether it succeeded or not, drop the lock — same slot will be reflected via appointments table.
   await releaseLocksForCustomer(ctx.tenantId, ctx.customerPhone);
 
   if (!result.success) return { ok: false, error: result.error || 'Booking failed' };
-  return { ok: true, data: { appointment_id: result.appointmentId } };
+  return {
+    ok: true,
+    data: {
+      appointment_id: result.appointmentId,
+      hebrew_date: formatDateHebrew(dayjs(date)),
+      time,
+      booking_for: bookingForName || null,
+    },
+  };
 }
 
 async function toolListAppointments(ctx: ToolContext): Promise<ToolResult> {

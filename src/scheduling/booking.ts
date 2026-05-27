@@ -20,6 +20,7 @@ export async function createBooking(
   date: string,      // YYYY-MM-DD
   time: string,      // HH:mm
   staffId?: string,
+  notes?: string,
 ): Promise<BookingResult> {
   // Get service to know duration
   const [service] = await db.select().from(schema.services)
@@ -56,6 +57,7 @@ export async function createBooking(
     endTime: endTime.format('YYYY-MM-DDTHH:mm:ss'),
     status: 'confirmed',
     source: 'whatsapp_bot',
+    notes: notes || null,
   });
 
   return { success: true, appointmentId };

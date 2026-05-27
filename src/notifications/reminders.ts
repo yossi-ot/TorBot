@@ -27,6 +27,7 @@ async function sendReminders() {
     appointmentId: schema.appointments.id,
     startTime: schema.appointments.startTime,
     serviceName: schema.services.name,
+    notes: schema.appointments.notes,
     customerPhone: schema.customers.phone,
     tenantId: schema.appointments.tenantId,
     tenantName: schema.tenants.name,
@@ -48,7 +49,11 @@ async function sendReminders() {
 
   for (const appt of upcoming) {
     const startDate = dayjs(appt.startTime);
-    const message = `⏰ תזכורת מ-*${appt.tenantName}*:\n\nיש לך תור ל-${appt.serviceName} ${formatDateHebrew(startDate)} בשעה ${startDate.format('HH:mm')}.\n\nנתראה! 😊`;
+    // If the appointment is for someone else (notes = "עבור [name]"), reference them.
+    const forMatch = appt.notes?.match(/^עבור\s+(.+)$/);
+    const forName = forMatch ? forMatch[1].trim() : '';
+    const subject = forName ? `התור של ${forName}` : 'התור שלך';
+    const message = `⏰ תזכורת מ-*${appt.tenantName}*:\n\n${subject} ל-${appt.serviceName} ${formatDateHebrew(startDate)} בשעה ${startDate.format('HH:mm')}.`;
 
     try {
       const { provider, credentials } = credentialsFromTenant(appt);

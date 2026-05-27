@@ -129,6 +129,11 @@ async function routeMessage(session: Session, tenant: typeof schema.tenants.$inf
         recentUserMessages: nextRecent,
       });
 
+      console.log(`[agent] ${session.customerPhone} • ${result.inputTokens}in/${result.outputTokens}out → ${result.costAgorot}אג'`);
+
+      if (process.env.SHOW_AI_COSTS === '1') {
+        return `${result.reply}\n\n— — —\n💰 ${result.costAgorot} אגורות (${result.inputTokens} in / ${result.outputTokens} out)`;
+      }
       return result.reply;
     } catch (err: any) {
       if (err.message === 'AGENT_NO_API_KEY') {
