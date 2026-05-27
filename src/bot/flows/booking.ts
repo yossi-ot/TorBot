@@ -23,11 +23,8 @@ export async function startBooking(session: Session): Promise<string> {
 
   await updateSession(session, { state: 'SELECT_SERVICE' });
 
-  const lines = services.map((s, i) =>
-    `${i + 1}️⃣ ${s.name} (${s.durationMinutes} דק') - ₪${s.price}`
-  );
-
-  return `איזה שירות מעניין אותך?\n\n${lines.join('\n')}`;
+  const lines = services.map((s, i) => `${i + 1}. ${s.name}`);
+  return `איזה שירות?\n${lines.join('\n')}`;
 }
 
 /** Handle service selection, show available dates */

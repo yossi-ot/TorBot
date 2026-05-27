@@ -280,7 +280,7 @@ export async function rescueMidFlow(text: string, ctx: MidFlowContext): Promise<
 /** Free-form chat for cases the normalizer can't resolve. Kept for backwards compat. */
 export async function generateResponse(userMessage: string, systemPrompt: string): Promise<string> {
   if (!config.anthropic.apiKey) {
-    return 'סליחה, לא הבנתי. אפשר לנסות:\n1️⃣ קביעת תור\n2️⃣ ביטול תור\n3️⃣ התורים שלי';
+    return 'לא הבנתי. אפשר לכתוב: קביעת תור, ביטול, או "התורים שלי".';
   }
 
   try {
@@ -293,6 +293,6 @@ export async function generateResponse(userMessage: string, systemPrompt: string
     return response.content[0].type === 'text' ? response.content[0].text : '';
   } catch (err) {
     console.error('AI response error:', err);
-    return 'סליחה, לא הבנתי. אפשר לנסות:\n1️⃣ קביעת תור\n2️⃣ ביטול תור\n3️⃣ התורים שלי';
+    return 'לא הבנתי. אפשר לכתוב: קביעת תור, ביטול, או "התורים שלי".';
   }
 }

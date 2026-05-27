@@ -113,8 +113,9 @@ async function routeMessage(session: Session, tenant: typeof schema.tenants.$inf
     if (numeric === 'list') return handleMyAppointments(session);
   }
 
-  // Primary path: conversational AI agent
-  if (config.anthropic.apiKey) {
+  // Conversational agent is opt-in via env (USE_AI_AGENT=1). Default is the
+  // cheaper state-machine + normalizer hybrid.
+  if (process.env.USE_AI_AGENT === '1' && config.anthropic.apiKey) {
     try {
       const result = await runAgent({
         ctx: {
