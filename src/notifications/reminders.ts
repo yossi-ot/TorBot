@@ -53,7 +53,7 @@ async function sendReminders() {
     const forMatch = appt.notes?.match(/^עבור\s+(.+)$/);
     const forName = forMatch ? forMatch[1].trim() : '';
     const subject = forName ? `התור של ${forName}` : 'התור שלך';
-    const message = `⏰ תזכורת מ-*${appt.tenantName}*:\n\n${subject} ל-${appt.serviceName} ${formatDateHebrew(startDate)} בשעה ${startDate.format('HH:mm')}.`;
+    const message = `תזכורת מ-${appt.tenantName}: ${subject} ל-${appt.serviceName} ${formatDateHebrew(startDate)} בשעה ${startDate.format('HH:mm')}.`;
 
     try {
       const { provider, credentials } = credentialsFromTenant(appt);

@@ -8,11 +8,6 @@ export async function handleGreeting(session: Session): Promise<string> {
 
   const businessName = tenant?.name || 'העסק';
 
-  return `שלום${session.customerName ? ' ' + session.customerName : ''}! 👋
-אני הבוט של *${businessName}*.
-
-מה תרצה לעשות?
-1️⃣ קביעת תור חדש
-2️⃣ ביטול תור
-3️⃣ התורים שלי`;
+  return `שלום${session.customerName ? ' ' + session.customerName : ''}. אני הבוט של ${businessName}.
+מה תרצה לעשות? קביעת תור, ביטול, או "התורים שלי".`;
 }

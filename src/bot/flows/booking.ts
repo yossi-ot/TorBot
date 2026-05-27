@@ -102,17 +102,17 @@ async function continueAfterService(
 
   if (preTime && slotTimes.includes(preTime)) {
     await updateSession(session, { state: 'CONFIRM_BOOKING' });
-    return `*אישור תור:*\n\n📋 שירות: ${service.name}\n📅 תאריך: ${formatDateHebrew(dayjs(dateIso))}\n🕐 שעה: ${preTime}\n\nלאשר? (כן/לא)`;
+    return `אישור: ${service.name}, ${formatDateHebrew(dayjs(dateIso))} ב-${preTime}. לאשר? (כן/לא)`;
   }
 
   if (preTime) {
     const suggestions = findNearestSlots(preTime, slotTimes, 3);
-    return `השעה ${preTime} תפוסה 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+    return `השעה ${preTime} תפוסה. הקרובים: ${suggestions.join(' או ')}.`;
   }
 
   const first = slots[0].time;
   const last = slots[slots.length - 1].time;
-  return `📅 ${formatDateHebrew(dayjs(dateIso))} (${service.name})\n\nבאיזו שעה נוח לך?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${first} ל-${last})`;
+  return ` ${formatDateHebrew(dayjs(dateIso))} (${service.name})\n\nבאיזו שעה נוח לך?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${first} ל-${last})`;
 }
 
 
@@ -171,7 +171,7 @@ export async function handleDateSelection(session: Session, input: string): Prom
   const firstSlot = slots[0].time;
   const lastSlot = slots[slots.length - 1].time;
 
-  return `📅 ${formatDateHebrew(dayjs(selectedDate))}\n\nבאיזו שעה נוח לך?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${firstSlot} ל-${lastSlot})`;
+  return ` ${formatDateHebrew(dayjs(selectedDate))}\n\nבאיזו שעה נוח לך?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${firstSlot} ל-${lastSlot})`;
 }
 
 /** Handle time selection, show confirmation */
@@ -188,7 +188,7 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     } else {
       // Suggest 3 nearest available times
       const suggestions = findNearestSlots(parsed, slots, 3);
-      return `השעה ${parsed} תפוסה 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+      return `השעה ${parsed} תפוסה. הקרובים: ${suggestions.join(' או ')}.`;
     }
   }
 
@@ -208,7 +208,7 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     } else if (aiTime) {
       // Time understood but not exactly available — suggest nearest
       const suggestions = findNearestSlots(aiTime, slots, 3);
-      return `${aiTime} לא פנוי 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+      return `${aiTime} לא פנוי. הקרובים: ${suggestions.join(' או ')}.`;
     }
   }
 
@@ -224,13 +224,7 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     selectedTime,
   });
 
-  return `*אישור תור:*
-
-📋 שירות: ${session.selectedServiceName}
-📅 תאריך: ${formatDateHebrew(dayjs(session.selectedDate!))}
-🕐 שעה: ${selectedTime}
-
-לאשר? (כן/לא)`;
+  return `אישור: ${session.selectedServiceName}, ${formatDateHebrew(dayjs(session.selectedDate!))} ב-${selectedTime}. לאשר? (כן/לא)`;
 }
 
 /** Handle booking confirmation */
@@ -297,14 +291,7 @@ export async function handleConfirmation(session: Session, input: string): Promi
     return result.error || 'שגיאה בקביעת התור. נסה שוב.';
   }
 
-  return `✅ *התור נקבע בהצלחה!*
-
-📋 ${session.selectedServiceName}
-📅 ${formatDateHebrew(dayjs(session.selectedDate!))}
-🕐 ${session.selectedTime}
-
-תקבל תזכורת לפני התור.
-להתראות! 😊`;
+  return `התור נקבע. ${session.selectedServiceName}, ${formatDateHebrew(dayjs(session.selectedDate!))} ב-${session.selectedTime}. נשלח תזכורת שעה לפני.`;
 }
 
 async function getServiceDuration(session: Session): Promise<number | null> {
@@ -381,13 +368,13 @@ export async function startBookingWithEntities(
   if (!n.time) {
     const first = slots[0].time;
     const last = slots[slots.length - 1].time;
-    return `📅 ${formatDateHebrew(dayjs(dateIso))}\n\nבאיזו שעה נוח לך ל-${service.name}?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${first} ל-${last})`;
+    return ` ${formatDateHebrew(dayjs(dateIso))}\n\nבאיזו שעה נוח לך ל-${service.name}?\nכתוב שעה, למשל *10:30*\n(שעות פנויות בין ${first} ל-${last})`;
   }
 
   const slotTimes = slots.map(s => s.time);
   if (!slotTimes.includes(n.time)) {
     const suggestions = findNearestSlots(n.time, slotTimes, 3);
-    return `השעה ${n.time} תפוסה 😕\nהזמנים הקרובים: *${suggestions.join('* / *')}*\nאיזו שעה מתאימה?`;
+    return `השעה ${n.time} תפוסה. הקרובים: ${suggestions.join(' או ')}.`;
   }
 
   await updateSession(session, {
@@ -395,13 +382,7 @@ export async function startBookingWithEntities(
     selectedTime: n.time,
   });
 
-  return `*אישור תור:*
-
-📋 שירות: ${service.name}
-📅 תאריך: ${formatDateHebrew(dayjs(dateIso))}
-🕐 שעה: ${n.time}
-
-לאשר? (כן/לא)`;
+  return `אישור: ${service.name}, ${formatDateHebrew(dayjs(dateIso))} ב-${n.time}. לאשר? (כן/לא)`;
 }
 
 async function askDatePrompt(tenantId: string, durationMinutes: number, serviceName: string): Promise<string> {
@@ -450,7 +431,7 @@ async function rescueStuckUser(
       return handleMyAppointments(session);
 
     case 'greeting':
-      return `${pickGreetingReply()} 😊\n\n${rePromptForStep(awaitingFor, session)}`;
+      return `${pickGreetingReply()}. ${rePromptForStep(awaitingFor, session)}`;
 
     case 'restart':
       // Fresh booking request — wipe session and start with whatever entities AI surfaced.

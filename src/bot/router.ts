@@ -65,13 +65,13 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       .catch(err => console.warn('Typing indicator failed:', err));
   }
 
-  // Belt-and-suspenders: if the AI takes longer than 1.5s, send an
-  // explicit "⏳" placeholder message so the customer never sees a
-  // multi-second silence.
+  // Belt-and-suspenders: if the AI takes longer than 1.5s, send a
+  // short "..." placeholder so the customer sees activity instead of
+  // a multi-second silence.
   let placeholderSent = false;
   const placeholderTimer = setTimeout(() => {
     placeholderSent = true;
-    sendWhatsAppMessage({ provider, credentials, to: msg.from, text: '⏳' })
+    sendWhatsAppMessage({ provider, credentials, to: msg.from, text: '...' })
       .catch(err => console.warn('Placeholder send failed:', err));
   }, 1500);
 
@@ -204,7 +204,7 @@ async function routeWithStateMachine(session: Session, text: string): Promise<st
     case 'list':
       return handleMyAppointments(session);
     default:
-      return `לא הבנתי 😅\nאפשר לנסות:\n1️⃣ קביעת תור\n2️⃣ ביטול תור\n3️⃣ התורים שלי`;
+      return `לא הבנתי. אפשר לכתוב: קביעת תור, ביטול, או "התורים שלי".`;
   }
 }
 

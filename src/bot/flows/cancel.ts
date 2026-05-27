@@ -19,10 +19,10 @@ export async function startCancel(session: Session): Promise<string> {
   await updateSession(session, { state: 'CANCEL_SELECT' });
 
   const lines = appointments.map((a, i) =>
-    `${i + 1}️⃣ ${a.serviceName} - ${formatDateHebrew(dayjs(a.startTime))} ב-${dayjs(a.startTime).format('HH:mm')}`
+    `${i + 1}. ${a.serviceName}, ${formatDateHebrew(dayjs(a.startTime))} ב-${dayjs(a.startTime).format('HH:mm')}`
   );
 
-  return `אלו התורים שלך:\n\n${lines.join('\n')}\n\nאיזה תור לבטל? (בחר מספר)`;
+  return `התורים שלך:\n${lines.join('\n')}\nאיזה תור לבטל?`;
 }
 
 /** Handle cancel selection */
@@ -46,8 +46,8 @@ export async function handleCancelSelection(session: Session, input: string): Pr
   await updateSession(session, { state: 'IDLE' });
 
   if (success) {
-    return `✅ התור בוטל:\n${appointment.serviceName} - ${formatDateHebrew(dayjs(appointment.startTime))} ב-${dayjs(appointment.startTime).format('HH:mm')}\n\nרוצה לקבוע תור חדש? כתוב "תור".`;
+    return `בוטל. ${appointment.serviceName}, ${formatDateHebrew(dayjs(appointment.startTime))} ב-${dayjs(appointment.startTime).format('HH:mm')}.`;
   }
 
-  return 'שגיאה בביטול התור. נסה שוב.';
+  return 'שגיאה בביטול. נסה שוב.';
 }

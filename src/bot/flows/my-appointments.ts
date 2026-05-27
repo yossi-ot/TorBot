@@ -12,12 +12,12 @@ export async function handleMyAppointments(session: Session): Promise<string> {
   const appointments = await getCustomerAppointments(session.tenantId, customerId);
 
   if (appointments.length === 0) {
-    return 'אין לך תורים קרובים.\nרוצה לקבוע? כתוב "תור".';
+    return 'אין לך תורים קרובים.';
   }
 
   const lines = appointments.map(a =>
-    `📋 ${a.serviceName}\n📅 ${formatDateHebrew(dayjs(a.startTime))} ב-${dayjs(a.startTime).format('HH:mm')}`
+    `${a.serviceName}, ${formatDateHebrew(dayjs(a.startTime))} ב-${dayjs(a.startTime).format('HH:mm')}`
   );
 
-  return `*התורים שלך:*\n\n${lines.join('\n\n')}`;
+  return `התורים שלך:\n${lines.join('\n')}`;
 }
