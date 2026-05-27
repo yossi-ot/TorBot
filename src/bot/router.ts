@@ -12,6 +12,7 @@ import { runAgent } from './agent.js';
 import { normalizePhone } from '../utils/phone.js';
 import { dayjs } from '../utils/date.js';
 import { config } from '../config.js';
+import { withCostTracking, bucketCostAgorot } from './cost-tracker.js';
 
 interface IncomingMessage {
   phoneNumberId: string;
@@ -76,13 +77,27 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   }, 1500);
 
   let response: string;
+  let bucketSnapshot = { inputTokens: 0, outputTokens: 0, calls: 0 };
   try {
-    response = await routeMessage(session, tenant, msg.text.trim());
+    const tracked = await withCostTracking(() => routeMessage(session, tenant, msg.text.trim()));
+    response = tracked.result;
+    bucketSnapshot = tracked.bucket;
   } catch (err) {
     console.error('routeMessage error:', err);
     response = 'משהו השתבש. תרצה לנסות שוב?';
   }
   clearTimeout(placeholderTimer);
+
+  const cost = bucketCostAgorot(bucketSnapshot);
+  console.log(`[router] ${session.customerPhone} • ${bucketSnapshot.calls} AI calls • ${bucketSnapshot.inputTokens}in/${bucketSnapshot.outputTokens}out → ${cost}אג'`);
+
+  if (process.env.SHOW_AI_COSTS === '1') {
+    if (bucketSnapshot.calls === 0) {
+      response += `\n— — —\n💰 0 אגורות (ללא AI)`;
+    } else {
+      response += `\n— — —\n💰 ${cost} אגורות (${bucketSnapshot.calls} AI calls · ${bucketSnapshot.inputTokens} in / ${bucketSnapshot.outputTokens} out)`;
+    }
+  }
 
   try {
     await sendWhatsAppMessage({
@@ -94,7 +109,7 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   } catch (err) {
     console.error(`Failed to send reply to ${msg.from}:`, err);
   }
-  void placeholderSent; // referenced for clarity even though we don't branch on it
+  void placeholderSent;
 }
 
 export async function handleTestMessage(tenantId: string, phone: string, text: string, contactName: string): Promise<string> {
@@ -148,11 +163,6 @@ async function routeMessage(session: Session, tenant: typeof schema.tenants.$inf
         recentUserMessages: nextRecent,
       });
 
-      console.log(`[agent] ${session.customerPhone} • ${result.inputTokens}in/${result.outputTokens}out → ${result.costAgorot}אג'`);
-
-      if (process.env.SHOW_AI_COSTS === '1') {
-        return `${result.reply}\n\n— — —\n💰 ${result.costAgorot} אגורות (${result.inputTokens} in / ${result.outputTokens} out)`;
-      }
       return result.reply;
     } catch (err: any) {
       if (err.message === 'AGENT_NO_API_KEY') {

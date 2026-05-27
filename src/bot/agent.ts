@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import { dayjs } from '../utils/date.js';
 import { TOOL_DEFINITIONS, runTool, ToolContext } from './tools.js';
+import { recordAiUsage } from './cost-tracker.js';
 
 let client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -208,6 +209,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
 
     totalInputTokens += response.usage.input_tokens;
     totalOutputTokens += response.usage.output_tokens;
+    recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
 
     // Collect any text reply chunks for the final user-facing message
     const textParts = response.content

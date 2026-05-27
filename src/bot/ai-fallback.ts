@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
+import { recordAiUsage } from './cost-tracker.js';
 
 let client: Anthropic | null = null;
 
@@ -74,6 +75,7 @@ export async function normalizeMessage(
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
     });
+    recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -103,6 +105,7 @@ async function interpretWithPrompt(systemPrompt: string, userMessage: string): P
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
     });
+    recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
     return text.trim().replace(/[."'`]/g, '');
   } catch (err) {
@@ -266,6 +269,7 @@ export async function rescueMidFlow(text: string, ctx: MidFlowContext): Promise<
       system: systemPrompt,
       messages: [{ role: 'user', content: text }],
     });
+    recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
     const out = response.content[0].type === 'text' ? response.content[0].text : '';
     const jsonMatch = out.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { action: 'unclear' };
@@ -290,6 +294,7 @@ export async function generateResponse(userMessage: string, systemPrompt: string
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
     });
+    recordAiUsage(response.usage.input_tokens, response.usage.output_tokens);
     return response.content[0].type === 'text' ? response.content[0].text : '';
   } catch (err) {
     console.error('AI response error:', err);
