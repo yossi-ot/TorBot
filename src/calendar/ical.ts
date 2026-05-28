@@ -38,10 +38,14 @@ export function registerCalendarRoutes(app: FastifyInstance) {
     });
 
     for (const appt of appointments) {
+      // appt.startTime/endTime are naive local 'YYYY-MM-DDTHH:mm:ss' (tenant
+      // wall clock). Use `floating: true` so the event keeps its wall-clock
+      // time regardless of the server's process TZ or the calendar app's TZ.
       calendar.createEvent({
         id: appt.id,
         start: new Date(appt.startTime),
         end: new Date(appt.endTime),
+        floating: true,
         summary: `${appt.serviceName} - ${appt.customerName || appt.customerPhone}`,
         description: `לקוח: ${appt.customerName || 'ללא שם'}\nטלפון: ${appt.customerPhone}`,
       });

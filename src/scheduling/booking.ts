@@ -82,7 +82,10 @@ export async function cancelBooking(appointmentId: string, reason?: string): Pro
  * Get upcoming appointments for a customer.
  */
 export async function getCustomerAppointments(tenantId: string, customerId: string) {
-  const now = new Date().toISOString();
+  // startTime is stored as naive local time 'YYYY-MM-DDTHH:mm:ss' (server TZ
+  // = Asia/Jerusalem). Compare against now formatted the same way so the
+  // string comparison below is meaningful.
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss');
 
   const rows = await db.select({
     id: schema.appointments.id,

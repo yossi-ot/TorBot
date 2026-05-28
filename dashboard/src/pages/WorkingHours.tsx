@@ -4,6 +4,17 @@ import type { WorkingHour, BlockedSlot } from '../types';
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
+// blockedSlots datetimes come as naive local strings ('YYYY-MM-DDTHH:mm:ss',
+// Asia/Jerusalem wall clock). Avoid `new Date(...)` so browser TZ doesn't
+// shift the displayed time.
+function formatNaiveLocal(naive: string): string {
+  const [datePart = '', timePart = ''] = naive.split('T');
+  const [y, m, d] = datePart.split('-');
+  const [hh, mm] = timePart.split(':');
+  if (!y || !d) return naive;
+  return `${d}/${m}/${y}, ${hh ?? '00'}:${mm ?? '00'}`;
+}
+
 interface DayRow {
   dayOfWeek: number;
   isActive: boolean;
@@ -197,8 +208,8 @@ export default function WorkingHours() {
             <tbody className="divide-y divide-gray-100">
               {blockedSlots.map((b) => (
                 <tr key={b.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{new Date(b.startDatetime).toLocaleString('he-IL')}</td>
-                  <td className="px-4 py-3">{new Date(b.endDatetime).toLocaleString('he-IL')}</td>
+                  <td className="px-4 py-3">{formatNaiveLocal(b.startDatetime)}</td>
+                  <td className="px-4 py-3">{formatNaiveLocal(b.endDatetime)}</td>
                   <td className="px-4 py-3">{b.reason || '-'}</td>
                   <td className="px-4 py-3">
                     <button

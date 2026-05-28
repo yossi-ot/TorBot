@@ -16,14 +16,20 @@ const STATUS_COLORS: Record<string, string> = {
   no_show: 'bg-yellow-100 text-yellow-800',
 };
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+// startTime/endTime come from the server as naive local strings
+// ('YYYY-MM-DDTHH:mm:ss', Asia/Jerusalem wall clock, no TZ). Parsing them
+// via `new Date()` would interpret them in the browser's TZ and show wrong
+// times for users abroad. Format the string parts directly instead.
+function formatDate(naive: string) {
+  const [datePart = ''] = naive.split('T');
+  const [y, m, d] = datePart.split('-');
+  return `${d}/${m}/${y}`;
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+function formatTime(naive: string) {
+  const [, timePart = ''] = naive.split('T');
+  const [hh, mm] = timePart.split(':');
+  return `${hh}:${mm}`;
 }
 
 export default function Appointments() {

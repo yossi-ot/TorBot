@@ -183,7 +183,11 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     if (slots.includes(parsed)) {
       selectedTime = parsed;
     } else {
-      // Suggest 3 nearest available times
+      const firstSlot = slots[0];
+      const lastSlot = slots[slots.length - 1];
+      if (parsed < firstSlot || parsed > lastSlot) {
+        return `השעה ${parsed} מחוץ לשעות הפעילות. שעות פנויות בין ${firstSlot} ל-${lastSlot}.`;
+      }
       const suggestions = findNearestSlots(parsed, slots, 3);
       return `השעה ${parsed} תפוסה. הקרובים: ${suggestions.join(' או ')}.`;
     }
@@ -203,7 +207,11 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     if (aiTime && slots.includes(aiTime)) {
       selectedTime = aiTime;
     } else if (aiTime) {
-      // Time understood but not exactly available — suggest nearest
+      const firstSlot = slots[0];
+      const lastSlot = slots[slots.length - 1];
+      if (aiTime < firstSlot || aiTime > lastSlot) {
+        return `השעה ${aiTime} מחוץ לשעות הפעילות. שעות פנויות בין ${firstSlot} ל-${lastSlot}.`;
+      }
       const suggestions = findNearestSlots(aiTime, slots, 3);
       return `${aiTime} לא פנוי. הקרובים: ${suggestions.join(' או ')}.`;
     }
