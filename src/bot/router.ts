@@ -2,7 +2,7 @@ import { db, schema } from '../db/index.js';
 import { eq, and } from 'drizzle-orm';
 import { getSession, createSession, Session, updateSession } from './session.js';
 import { sendWhatsAppMessage } from '../whatsapp/sender.js';
-import { credentialsFromTenant, getProvider } from '../whatsapp/index.js';
+import { credentialsFromTenant } from '../whatsapp/index.js';
 import { handleGreeting } from './flows/greeting.js';
 import { startBooking, startBookingWithEntities, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
 import { startCancel, handleCancelSelection } from './flows/cancel.js';
@@ -59,22 +59,14 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
 
   const { provider, credentials } = credentialsFromTenant(tenant);
 
-  // Try the WhatsApp-native typing indicator first (silent if BSP/sandbox
-  // doesn't support it).
-  if (msg.messageId) {
-    getProvider(provider).sendTypingIndicator?.({ credentials, messageId: msg.messageId })
-      .catch(err => console.warn('Typing indicator failed:', err));
-  }
-
-  // Belt-and-suspenders: if the AI takes longer than 1.5s, send a
-  // short "..." placeholder so the customer sees activity instead of
-  // a multi-second silence.
-  let placeholderSent = false;
+  // If processing takes longer than 1s, send a placeholder so the customer
+  // sees activity instead of silence. 360dialog doesn't relay WhatsApp's
+  // native typing indicator, so we use a plain message that also reads
+  // sensibly in the chat history afterwards.
   const placeholderTimer = setTimeout(() => {
-    placeholderSent = true;
-    sendWhatsAppMessage({ provider, credentials, to: msg.from, text: '...' })
+    sendWhatsAppMessage({ provider, credentials, to: msg.from, text: 'רגע, בודק...' })
       .catch(err => console.warn('Placeholder send failed:', err));
-  }, 1500);
+  }, 1000);
 
   let response: string;
   let bucketSnapshot = { inputTokens: 0, outputTokens: 0, calls: 0 };
@@ -109,7 +101,6 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   } catch (err) {
     console.error(`Failed to send reply to ${msg.from}:`, err);
   }
-  void placeholderSent;
 }
 
 export async function handleTestMessage(tenantId: string, phone: string, text: string, contactName: string): Promise<string> {
