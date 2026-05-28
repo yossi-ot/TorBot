@@ -42,6 +42,18 @@ app.get('/', async () => {
   return { status: 'ok', name: 'TorBot', version: '1.0.0' };
 });
 
+// Server time check — used to verify timezone configuration after deploy.
+app.get('/_time', async () => {
+  const now = new Date();
+  return {
+    iso: now.toISOString(),
+    local: now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }),
+    serverLocal: now.toString(),
+    tz_env: process.env.TZ || '(not set)',
+    offset_minutes: now.getTimezoneOffset(),
+  };
+});
+
 // Start server
 async function start() {
   try {
