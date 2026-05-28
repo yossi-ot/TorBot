@@ -55,7 +55,7 @@ export async function handleServiceSelection(session: Session, input: string): P
   if (!service) {
     const rescue = await rescueStuckUser(session, input, 'service');
     if (rescue) return rescue;
-    return `לא הבנתי. בחר מספר בין 1 ל-${services.length}:`;
+    return `אפשר לבחור: מספר בין 1 ל-${services.length}, או שם השירות.`;
   }
 
   await updateSession(session, {
@@ -149,7 +149,7 @@ export async function handleDateSelection(session: Session, input: string): Prom
   if (!selectedDate) {
     const rescue = await rescueStuckUser(session, input, 'date');
     if (rescue) return rescue;
-    return 'לא הבנתי את התאריך. בחר מספר מהרשימה או כתוב "מחר", "היום", או תאריך כמו 25/02:';
+    return 'אפשר לכתוב תאריך — "מחר", "היום", "יום ראשון", או למשל 25/02.';
   }
 
   const duration = await getServiceDuration(session) || 30;
@@ -213,7 +213,7 @@ export async function handleTimeSelection(session: Session, input: string): Prom
     const rescue = await rescueStuckUser(session, input, 'time');
     if (rescue) return rescue;
     const samples = slots.slice(0, 3).join(', ');
-    return `לא הבנתי. כתוב שעה כמו *10:30* או *14:00*\n(לדוגמה זמנים פנויים: ${samples})`;
+    return `אפשר לכתוב שעה למשל 10:30 או 14:00. שעות פנויות כעת: ${samples}.`;
   }
 
   await updateSession(session, {

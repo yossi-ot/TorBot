@@ -215,7 +215,7 @@ async function routeWithStateMachine(session: Session, text: string): Promise<st
     case 'list':
       return handleMyAppointments(session);
     default:
-      return `לא הבנתי. אפשר לכתוב: קביעת תור, ביטול, או "התורים שלי".`;
+      return `אפשר לכתוב: קביעת תור, ביטול, או "התורים שלי".`;
   }
 }
 

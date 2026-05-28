@@ -263,7 +263,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
   }
 
   if (!reply) {
-    reply = 'סליחה, לא הצלחתי להבין. אפשר לנסות שוב?';
+    reply = 'אפשר לנסח שוב?';
   }
 
   stateUpdates.lastBotMessage = reply;
