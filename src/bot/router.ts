@@ -7,7 +7,7 @@ import { handleGreeting } from './flows/greeting.js';
 import { startBooking, startBookingWithEntities, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
 import { startCancel, handleCancelSelection } from './flows/cancel.js';
 import { handleMyAppointments } from './flows/my-appointments.js';
-import { normalizeMessage } from './ai-fallback.js';
+import { normalizeMessage, quickIntent } from './ai-fallback.js';
 import { runAgent } from './agent.js';
 import { normalizePhone } from '../utils/phone.js';
 import { dayjs } from '../utils/date.js';
@@ -59,14 +59,14 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
 
   const { provider, credentials } = credentialsFromTenant(tenant);
 
-  // If processing takes longer than 1s, send a placeholder so the customer
-  // sees activity instead of silence. 360dialog doesn't relay WhatsApp's
-  // native typing indicator, so we use a plain message that also reads
-  // sensibly in the chat history afterwards.
-  const placeholderTimer = setTimeout(() => {
-    sendWhatsAppMessage({ provider, credentials, to: msg.from, text: 'רגע, בודק...' })
-      .catch(err => console.warn('Placeholder send failed:', err));
-  }, 1000);
+  // Fire a context-aware placeholder immediately so the customer never sees
+  // silence — 360dialog doesn't relay WhatsApp's native typing indicator.
+  // The text describes what the bot is about to do (no AI cost).
+  const placeholderText = pickPlaceholder(session, msg.text.trim());
+  const placeholderPromise: Promise<unknown> = placeholderText
+    ? sendWhatsAppMessage({ provider, credentials, to: msg.from, text: placeholderText })
+        .catch(err => { console.warn('Placeholder send failed:', err); })
+    : Promise.resolve();
 
   let response: string;
   let bucketSnapshot = { inputTokens: 0, outputTokens: 0, calls: 0 };
@@ -78,7 +78,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     console.error('routeMessage error:', err);
     response = 'משהו השתבש. תרצה לנסות שוב?';
   }
-  clearTimeout(placeholderTimer);
+  // Make sure the placeholder lands before the real response.
+  await placeholderPromise;
 
   const cost = bucketCostAgorot(bucketSnapshot);
   console.log(`[router] ${session.customerPhone} • ${bucketSnapshot.calls} AI calls • ${bucketSnapshot.inputTokens}in/${bucketSnapshot.outputTokens}out → ${cost}אג'`);
@@ -218,4 +219,22 @@ function detectNumericChoice(text: string): NumericChoice {
   if (/^2️⃣?$/.test(t)) return 'cancel';
   if (/^3️⃣?$/.test(t)) return 'list';
   return null;
+}
+
+/** Pick a short placeholder bubble based on what the bot is about to do.
+ *  Returns null for cases where a placeholder would be silly (greetings). */
+function pickPlaceholder(session: Session, text: string): string | null {
+  switch (session.state) {
+    case 'SELECT_SERVICE':  return 'רגע, בודק שירותים...';
+    case 'SELECT_DATE':     return 'רגע, בודק תאריכים פנויים...';
+    case 'SELECT_TIME':     return 'רגע, בודק שעות פנויות...';
+    case 'CONFIRM_BOOKING': return 'רגע, מאשר את התור...';
+    case 'CANCEL_SELECT':   return 'רגע, מבטל את התור...';
+  }
+  const intent = quickIntent(text);
+  if (intent === 'book')     return 'רגע, בודק זמינות...';
+  if (intent === 'cancel')   return 'רגע, מאתר את התורים שלך...';
+  if (intent === 'list')     return 'רגע, מביא את התורים שלך...';
+  if (intent === 'greeting') return null;
+  return 'רגע, בודק...';
 }

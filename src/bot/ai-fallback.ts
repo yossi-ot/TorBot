@@ -35,7 +35,7 @@ export interface NormalizerContext {
  */
 /** Fast deterministic intent guess from common Hebrew phrases. Avoids an AI
  *  call (and AI flakiness) for the obvious cases. Returns null if unsure. */
-function quickIntent(text: string): 'book' | 'cancel' | 'list' | 'greeting' | null {
+export function quickIntent(text: string): 'book' | 'cancel' | 'list' | 'greeting' | null {
   const t = text.trim().toLowerCase();
   if (!t) return null;
   if (/^(התורים\s*שלי|הזמנות\s*שלי|תורים\s*שלי)\b/.test(t)) return 'list';
