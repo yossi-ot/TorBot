@@ -33,10 +33,25 @@ export interface NormalizerContext {
  * into a structured intent + entities. Deterministic code downstream
  * decides how to act on the result.
  */
+/** Fast deterministic intent guess from common Hebrew phrases. Avoids an AI
+ *  call (and AI flakiness) for the obvious cases. Returns null if unsure. */
+function quickIntent(text: string): 'book' | 'cancel' | 'list' | 'greeting' | null {
+  const t = text.trim().toLowerCase();
+  if (!t) return null;
+  if (/^(התורים\s*שלי|הזמנות\s*שלי|תורים\s*שלי)\b/.test(t)) return 'list';
+  if (/(^|\s)(ביטול|לבטל|מבטל|מבטלת)(\s|$)/.test(t)) return 'cancel';
+  if (/(^|\s)(תור|תורים|קביעת\s*תור|לקבוע|להזמין|פגישה|פנוי)(\s|$)/.test(t)) return 'book';
+  if (/^(היי|הי|שלום|בוקר\s*טוב|צהריים\s*טובים|ערב\s*טוב|לילה\s*טוב|הלו|אהלן)\b/.test(t)) return 'greeting';
+  return null;
+}
+
 export async function normalizeMessage(
   userMessage: string,
   ctx: NormalizerContext,
 ): Promise<NormalizedMessage> {
+  const quick = quickIntent(userMessage);
+  if (quick) return { intent: quick };
+
   if (!config.anthropic.apiKey) {
     return { intent: 'unknown' };
   }
