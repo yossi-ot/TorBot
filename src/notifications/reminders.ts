@@ -7,15 +7,18 @@ import { dayjs, formatDateHebrew } from '../utils/date.js';
 
 /**
  * Start the reminder cron job.
- * Runs every 15 minutes, checks for appointments in the next hour
- * that haven't had a reminder sent yet.
+ * Runs every 30 minutes during salon hours (07:00–22:30 Israel time),
+ * checking for appointments in the next hour that haven't been reminded yet.
+ * Salons operate 08:00–22:00; starting at 07:00 lets an 08:00 appointment
+ * get its reminder a full hour ahead. Skipping nights keeps the Neon compute
+ * suspended ~16h/day instead of being woken 24/7.
  */
 export function startReminderJob() {
-  cron.schedule('*/15 * * * *', () => {
+  cron.schedule('*/30 7-22 * * *', () => {
     sendReminders().catch(err => console.error('Reminder job error:', err));
-  });
+  }, { timezone: 'Asia/Jerusalem' });
 
-  console.log('Reminder job started (every 15 minutes)');
+  console.log('Reminder job started (every 30 min, 07:00–22:30 Asia/Jerusalem)');
 }
 
 async function sendReminders() {
