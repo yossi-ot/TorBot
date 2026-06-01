@@ -7,6 +7,13 @@ primary_region = "fra"
   PORT = "3000"
   TZ = "Asia/Jerusalem"
 
+# Schema push + seed run in a temporary VM BEFORE the new release goes live,
+# so the app's start command only has to bind the port. This avoids the race
+# where Fly's health checks hit :3000 before push/seed finish (which crashed
+# deploys #35/#36 when the Neon compute was cold).
+[deploy]
+  release_command = "sh -c 'npx drizzle-kit push && npx tsx src/db/seed.ts'"
+
 [http_service]
   internal_port = 3000
   force_https = true

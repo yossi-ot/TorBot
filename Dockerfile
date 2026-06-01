@@ -17,5 +17,6 @@ RUN cd dashboard && npm run build
 
 EXPOSE 3000
 
-# Push schema to DB, seed demo data, then start server
-CMD ["sh", "-c", "npx drizzle-kit push && npx tsx src/db/seed.ts && npx tsx src/index.ts"]
+# Schema push + seed now run as the Fly release_command (see fly.toml).
+# The start command only binds the port, so health checks pass immediately.
+CMD ["npx", "tsx", "src/index.ts"]
