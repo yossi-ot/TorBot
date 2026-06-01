@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { clearToken } from '../api';
+import Logo from './Logo';
 
 const navItems = [
   { to: '/', label: 'תורים', icon: '📅' },
@@ -23,8 +24,8 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-56 bg-white shadow-sm border-l border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-lg font-bold text-emerald-700">TorBot</h1>
-          <p className="text-xs text-gray-500">לוח בקרה</p>
+          <Logo size="sm" orientation="horizontal" />
+          <p className="text-xs text-gray-400 text-center mt-2">לוח בקרה</p>
         </div>
         <nav className="flex-1 p-2">
           {navItems.map((item) => (
@@ -35,7 +36,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-2 px-3 py-2.5 rounded-lg mb-1 text-sm transition-colors ${
                   isActive
-                    ? 'bg-emerald-50 text-emerald-700 font-medium'
+                    ? 'bg-primary-50 text-primary-700 font-medium'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`
               }

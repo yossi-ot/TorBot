@@ -10,6 +10,7 @@ import { startTokenCheckJob } from './notifications/token-check.js';
 import { registerTestRoutes } from './test-chat.js';
 import { registerApiRoutes } from './api/index.js';
 import { registerLegalRoutes } from './legal.js';
+import { registerLandingRoute } from './landing.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,6 +25,7 @@ registerWebhookRoutes(app);
 registerCalendarRoutes(app);
 registerTestRoutes(app);
 registerLegalRoutes(app);
+registerLandingRoute(app);
 
 // Serve dashboard static files with SPA fallback
 app.register(fastifyStatic, {
@@ -37,8 +39,8 @@ app.get('/dashboard/*', async (request, reply) => {
   return reply.sendFile('index.html', join(__dirname, '..', 'dashboard', 'dist'));
 });
 
-// Health check
-app.get('/', async () => {
+// Health check (root '/' now serves the branded landing page via registerLandingRoute)
+app.get('/healthz', async () => {
   return { status: 'ok', name: 'TorBot', version: '1.0.0' };
 });
 

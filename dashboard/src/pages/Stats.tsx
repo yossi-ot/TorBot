@@ -56,7 +56,7 @@ export default function Stats() {
         <Card label="סה״כ תורים" value={stats.totalAppointments} color="bg-gray-100 text-gray-800" />
         <Card label="מאושרים" value={stats.confirmedCount} color="bg-green-100 text-green-800" />
         <Card label="בוטלו" value={stats.cancelledCount} color="bg-red-100 text-red-800" />
-        <Card label="הכנסות" value={`${stats.totalRevenue} ₪`} color="bg-emerald-100 text-emerald-800" />
+        <Card label="הכנסות" value={`${stats.totalRevenue} ₪`} color="bg-primary-100 text-primary-800" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -72,7 +72,7 @@ export default function Stats() {
                   <span className="text-sm">{s.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">{s.count} תורים</span>
-                    <span className="text-xs font-medium text-emerald-700">{s.revenue} ₪</span>
+                    <span className="text-xs font-medium text-primary-700">{s.revenue} ₪</span>
                   </div>
                 </div>
               ))}
@@ -91,7 +91,7 @@ export default function Stats() {
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-[10px] text-gray-500">{d.count}</span>
                   <div
-                    className="w-full bg-emerald-400 rounded-t"
+                    className="w-full bg-primary-400 rounded-t"
                     style={{ height: `${(d.count / maxDaily) * 100}%`, minHeight: d.count > 0 ? 4 : 0 }}
                   />
                   <span className="text-[9px] text-gray-400">{d.date.slice(5)}</span>
@@ -105,7 +105,7 @@ export default function Stats() {
       {/* New customers */}
       <div className="mt-4 bg-white rounded-xl shadow-sm p-4">
         <span className="text-sm text-gray-600">לקוחות חדשים בתקופה: </span>
-        <span className="font-bold text-emerald-700">{stats.newCustomers}</span>
+        <span className="font-bold text-primary-700">{stats.newCustomers}</span>
       </div>
     </div>
   );

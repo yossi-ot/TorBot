@@ -61,7 +61,7 @@ export default function Services() {
         <h2 className="text-xl font-bold text-gray-800">שירותים</h2>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700"
         >
           + הוסף שירות
         </button>
@@ -108,7 +108,7 @@ export default function Services() {
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <button type="submit" className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">
+                <button type="submit" className="flex-1 bg-primary-600 text-white py-2 rounded-lg font-medium hover:bg-primary-700">
                   {editingId ? 'שמור' : 'הוסף'}
                 </button>
                 <button type="button" onClick={resetForm} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200">
@@ -144,7 +144,7 @@ export default function Services() {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleActive(s)}
-                      className={`w-10 h-5 rounded-full transition-colors relative ${s.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                      className={`w-10 h-5 rounded-full transition-colors relative ${s.isActive ? 'bg-primary-500' : 'bg-gray-300'}`}
                     >
                       <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${s.isActive ? 'start-0.5' : 'start-5'}`} />
                     </button>

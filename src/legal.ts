@@ -1,14 +1,29 @@
 import { FastifyInstance } from 'fastify';
 
-const STYLE = `<style>
-  body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; direction: rtl; }
+const STYLE = `<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Heebo', -apple-system, "Segoe UI", Arial, sans-serif; max-width: 760px; margin: 0 auto; padding: 0 20px 40px; color: #1a1a1a; line-height: 1.7; direction: rtl; }
+  .brand { text-align: center; padding: 32px 0 8px; }
+  .brand .word { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; direction: ltr; }
+  .brand .word .tor { color: #1F7FB8; }
+  .brand .word .bot { color: #3D9131; }
+  .brand .tag { color: #9ca3af; font-size: 13px; font-weight: 500; margin-top: 2px; }
   h1 { font-size: 28px; margin-bottom: 8px; }
-  h2 { font-size: 20px; margin-top: 32px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+  h2 { font-size: 20px; margin-top: 32px; border-bottom: 2px solid #EAF6FC; padding-bottom: 8px; }
   .meta { color: #666; font-size: 14px; margin-bottom: 24px; }
   ul { padding-right: 20px; }
-  a { color: #2563eb; }
+  a { color: #1F7FB8; }
   .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; text-align: center; }
 </style>`;
+
+const HEADER = `<div class="brand">
+  <a href="/" style="text-decoration:none">
+    <div class="word"><span class="tor">TOR</span><span class="bot">BOT</span></div>
+  </a>
+  <div class="tag">זימון תורים חכם ומהיר</div>
+</div>`;
 
 const FOOTER = `<div class="footer">
   TorBot · יוסי אותמזגין · מיצר 31, קצרין · <a href="mailto:utmazgin@gmail.com">utmazgin@gmail.com</a><br>
@@ -24,6 +39,7 @@ const PRIVACY_HTML = `<!DOCTYPE html>
 ${STYLE}
 </head>
 <body>
+${HEADER}
 <h1>מדיניות פרטיות</h1>
 <p class="meta">עודכן לאחרונה: 3 במאי 2026</p>
 
@@ -108,6 +124,7 @@ const TERMS_HTML = `<!DOCTYPE html>
 ${STYLE}
 </head>
 <body>
+${HEADER}
 <h1>תנאי שימוש</h1>
 <p class="meta">עודכן לאחרונה: 3 במאי 2026</p>
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -25,11 +26,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-accent-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm border border-gray-100">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-emerald-700">TorBot</h1>
-          <p className="text-gray-500 text-sm mt-1">התחברות ללוח הבקרה</p>
+          <Logo size="lg" withTagline />
+          <p className="text-gray-500 text-sm mt-4">התחברות ללוח הבקרה</p>
         </div>
         <form onSubmit={handleSubmit}>
           <label className="block text-sm font-medium text-gray-700 mb-1">אימייל</label>
@@ -37,7 +38,7 @@ export default function Login() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="your@email.com"
             autoFocus
           />
@@ -46,21 +47,21 @@ export default function Login() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="הכנס סיסמה"
           />
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           <button
             type="submit"
             disabled={loading || !email || !password}
-            className="w-full mt-4 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            className="w-full mt-4 bg-primary-600 text-white py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
           >
             {loading ? 'מתחבר...' : 'התחבר'}
           </button>
         </form>
         <p className="text-center text-sm text-gray-500 mt-4">
           אין לך חשבון?{' '}
-          <Link to="/register" className="text-emerald-600 hover:underline font-medium">
+          <Link to="/register" className="text-primary-600 hover:underline font-medium">
             הרשמה לעסק חדש
           </Link>
         </p>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api';
+import Logo from '../components/Logo';
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -40,11 +41,11 @@ export default function Register() {
   const isValid = form.businessName && form.phone && form.email && form.password;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-accent-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm border border-gray-100">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-emerald-700">TorBot</h1>
-          <p className="text-gray-500 text-sm mt-1">רישום עסק חדש</p>
+          <Logo size="lg" withTagline />
+          <p className="text-gray-500 text-sm mt-4">רישום עסק חדש</p>
         </div>
         <form onSubmit={handleSubmit}>
           <label className="block text-sm font-medium text-gray-700 mb-1">שם העסק</label>
@@ -52,7 +53,7 @@ export default function Register() {
             type="text"
             value={form.businessName}
             onChange={(e) => update('businessName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="למשל: מספרת שרה"
             autoFocus
           />
@@ -62,7 +63,7 @@ export default function Register() {
             type="tel"
             value={form.phone}
             onChange={(e) => update('phone', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="050-1234567"
             dir="ltr"
           />
@@ -72,7 +73,7 @@ export default function Register() {
             type="email"
             value={form.email}
             onChange={(e) => update('email', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="your@email.com"
             dir="ltr"
           />
@@ -82,7 +83,7 @@ export default function Register() {
             type="password"
             value={form.password}
             onChange={(e) => update('password', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="לפחות 6 תווים"
           />
 
@@ -90,7 +91,7 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading || !isValid}
-            className="w-full mt-4 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            className="w-full mt-4 bg-primary-600 text-white py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
           >
             {loading ? 'נרשם...' : 'צור חשבון'}
           </button>
@@ -103,7 +104,7 @@ export default function Register() {
         </form>
         <p className="text-center text-sm text-gray-500 mt-4">
           כבר יש לך חשבון?{' '}
-          <Link to="/login" className="text-emerald-600 hover:underline font-medium">
+          <Link to="/login" className="text-primary-600 hover:underline font-medium">
             התחברות
           </Link>
         </p>

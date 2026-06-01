@@ -281,7 +281,7 @@ export default function Settings() {
               type="text"
               value={form.name}
               onChange={(e) => update('name', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             />
           </div>
           <div>
@@ -290,7 +290,7 @@ export default function Settings() {
               type="tel"
               value={form.phone}
               onChange={(e) => update('phone', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               dir="ltr"
             />
           </div>
@@ -300,7 +300,7 @@ export default function Settings() {
               type="text"
               value={form.address}
               onChange={(e) => update('address', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               placeholder="רחוב, עיר"
             />
           </div>
@@ -309,7 +309,7 @@ export default function Settings() {
             <select
               value={form.timezone}
               onChange={(e) => update('timezone', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             >
               <option value="Asia/Jerusalem">ישראל (Asia/Jerusalem)</option>
               <option value="Europe/London">לונדון (Europe/London)</option>
@@ -326,8 +326,8 @@ export default function Settings() {
         {waStatus?.connected ? (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
-              <span className="text-sm text-emerald-700 font-medium">מחובר</span>
+              <span className="w-3 h-3 bg-accent-500 rounded-full"></span>
+              <span className="text-sm text-accent-700 font-medium">מחובר</span>
             </div>
             {waStatus.daysUntilExpiry !== null && waStatus.daysUntilExpiry <= 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
@@ -438,8 +438,8 @@ export default function Settings() {
         {waStatus?.provider === 'dialog360' && waStatus.connected ? (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
-              <span className="text-sm text-emerald-700 font-medium">מחובר דרך 360dialog</span>
+              <span className="w-3 h-3 bg-accent-500 rounded-full"></span>
+              <span className="text-sm text-accent-700 font-medium">מחובר דרך 360dialog</span>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
               <p className="text-sm text-gray-500" dir="ltr">
@@ -463,14 +463,14 @@ export default function Settings() {
               value={d360Key}
               onChange={(e) => setD360Key(e.target.value)}
               placeholder="D360 API Key"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               dir="ltr"
               autoComplete="off"
             />
             <button
               onClick={handleConnectD360}
               disabled={d360Connecting}
-              className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              className="bg-primary-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
             >
               {d360Connecting ? 'מחבר...' : 'חבר 360dialog'}
             </button>
@@ -487,7 +487,7 @@ export default function Settings() {
             <textarea
               value={form.cancellationPolicy}
               onChange={(e) => update('cancellationPolicy', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
               rows={2}
               placeholder="למשל: ביטול עד 2 שעות לפני התור"
             />
@@ -497,7 +497,7 @@ export default function Settings() {
             <textarea
               value={form.aiSystemPrompt}
               onChange={(e) => update('aiSystemPrompt', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
               rows={4}
               placeholder="הנחיות מותאמות אישית לבוט WhatsApp (אופציונלי)"
             />
@@ -510,12 +510,12 @@ export default function Settings() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          className="bg-primary-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
         >
           {saving ? 'שומר...' : 'שמור שינויים'}
         </button>
         {message && (
-          <span className={`text-sm ${message.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+          <span className={`text-sm ${message.type === 'success' ? 'text-accent-600' : 'text-red-500'}`}>
             {message.text}
           </span>
         )}
