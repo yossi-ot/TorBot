@@ -1,21 +1,12 @@
 import 'dotenv/config';
-import pg from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, isNull } from 'drizzle-orm';
 import { v4 as uuid } from 'uuid';
 import bcrypt from 'bcrypt';
-import * as schema from './schema.js';
-
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://localhost:5432/torbot';
+// Uses the shared db connection, which honors USE_PGLITE for local testing.
+import { db, schema } from './index.js';
 
 async function seed() {
   console.log('Seeding database...');
-
-  const pool = new pg.Pool({
-    connectionString: DATABASE_URL,
-    ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
-  });
-  const db = drizzle(pool, { schema });
 
   // Backfill icalToken for any tenant missing one
   const missingTokens = await db.select({ id: schema.tenants.id }).from(schema.tenants)
@@ -33,7 +24,6 @@ async function seed() {
 
   if (existing) {
     console.log('Database already seeded.');
-    await pool.end();
     process.exit(0);
   }
 
@@ -98,7 +88,6 @@ async function seed() {
   console.log('User: demo@torbot.co.il / admin123');
   console.log(`Services: ${services.map(s => s.name).join(', ')}`);
 
-  await pool.end();
   process.exit(0);
 }
 
