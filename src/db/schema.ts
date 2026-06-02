@@ -103,6 +103,17 @@ export const slotLocks = pgTable('slot_locks', {
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+/** Inbound signups from the public landing page (not tied to a tenant). */
+export const leads = pgTable('leads', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  businessName: text('business_name').notNull(),
+  phone: text('phone').notNull(),
+  status: text('status').notNull().default('new'), // new | contacted | converted | rejected
+  source: text('source').notNull().default('landing'),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 export const appointments = pgTable('appointments', {
   id: text('id').primaryKey(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),

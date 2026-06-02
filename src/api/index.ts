@@ -9,6 +9,7 @@ import { registerStatsRoutes } from './stats.js';
 import { registerAdminRoutes } from './admin.js';
 import { registerSettingsRoutes } from './settings.js';
 import { registerWhatsAppConnectRoutes } from './whatsapp-connect.js';
+import { registerLeadRoutes } from './leads.js';
 
 export function registerApiRoutes(app: FastifyInstance) {
   // Auth routes (no JWT required)
@@ -17,6 +18,8 @@ export function registerApiRoutes(app: FastifyInstance) {
   // Protect all other /api/ routes with JWT
   app.addHook('onRequest', async (request, reply) => {
     if (request.url === '/api/auth/login' || request.url === '/api/auth/register') return;
+    // Public lead capture from the landing page (POST only; GET/PATCH stay protected)
+    if (request.method === 'POST' && request.url === '/api/leads') return;
     if (!request.url.startsWith('/api/')) return;
     await authMiddleware(request, reply);
   });
@@ -29,4 +32,5 @@ export function registerApiRoutes(app: FastifyInstance) {
   registerAdminRoutes(app);
   registerSettingsRoutes(app);
   registerWhatsAppConnectRoutes(app);
+  registerLeadRoutes(app);
 }

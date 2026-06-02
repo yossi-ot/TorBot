@@ -302,13 +302,25 @@ const LANDING_HTML = `<!DOCTYPE html>
     if (form) {
       form.addEventListener('submit', function (e) {
         e.preventDefault();
-        var name = document.getElementById('lf_name').value;
-        var biz = document.getElementById('lf_biz').value;
-        var phone = document.getElementById('lf_phone').value;
-        var text = 'ליד חדש מ-TorBot:' + NL + 'שם: ' + name + NL + 'עסק: ' + biz + NL + 'וואטסאפ: ' + phone;
-        form.style.display = 'none';
-        document.getElementById('leadOk').style.display = 'block';
-        window.open('https://wa.me/972500000000?text=' + encodeURIComponent(text), '_blank');
+        var btn = form.querySelector('button[type=submit]');
+        var payload = {
+          name: document.getElementById('lf_name').value,
+          businessName: document.getElementById('lf_biz').value,
+          phone: document.getElementById('lf_phone').value
+        };
+        if (btn) { btn.disabled = true; btn.textContent = 'שולח...'; }
+        fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(function (r) {
+          if (!r.ok) throw new Error('failed');
+          form.style.display = 'none';
+          document.getElementById('leadOk').style.display = 'block';
+        }).catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'אני רוצה לנסות בחינם'; }
+          alert('אירעה שגיאה בשליחה. נסו שוב או כתבו לנו ל-utmazgin@gmail.com');
+        });
       });
     }
   })();

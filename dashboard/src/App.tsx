@@ -8,6 +8,7 @@ import Services from './pages/Services';
 import WorkingHours from './pages/WorkingHours';
 import Stats from './pages/Stats';
 import Admin from './pages/Admin';
+import Leads from './pages/Leads';
 import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="stats" element={<Stats />} />
         <Route path="settings" element={<Settings />} />
         <Route path="admin" element={<Admin />} />
+        <Route path="leads" element={<Leads />} />
       </Route>
     </Routes>
   );

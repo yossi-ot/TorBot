@@ -154,6 +154,11 @@ export const api = {
   // Admin
   getTenants: () => request<any[]>('/admin/tenants'),
 
+  // Leads (super-admin)
+  getLeads: () => request<any[]>('/leads'),
+  updateLeadStatus: (id: string, status: string) =>
+    request<{ ok: boolean }>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
   // Stats
   getStats: (params?: { from?: string; to?: string }) => {
     const qs = new URLSearchParams();

@@ -9,6 +9,7 @@ const navItems = [
   { to: '/stats', label: 'סטטיסטיקות', icon: '📊' },
   { to: '/settings', label: 'הגדרות', icon: '⚙️' },
   { to: '/admin', label: 'ניהול עסקים', icon: '🏢' },
+  { to: '/leads', label: 'לידים', icon: '🎯' },
 ];
 
 export default function Layout() {
