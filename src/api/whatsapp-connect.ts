@@ -211,7 +211,22 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
       })
       .where(eq(schema.tenants.id, tenantId));
 
-    return { ok: true };
+    // Embedded Signup normally does this step automatically - without it,
+    // Meta never forwards incoming messages to our /webhook endpoint.
+    let subscribed = false;
+    let subscribeError: string | undefined;
+    try {
+      const subscribeRes = await fetch(
+        `https://graph.facebook.com/v21.0/${body.wabaId}/subscribed_apps`,
+        { method: 'POST', headers: { 'Authorization': `Bearer ${body.accessToken}` } }
+      );
+      subscribed = subscribeRes.ok;
+      if (!subscribeRes.ok) subscribeError = await subscribeRes.text();
+    } catch (err: any) {
+      subscribeError = err.message;
+    }
+
+    return { ok: true, subscribed, subscribeError };
   });
 
   // Get WhatsApp connection status
