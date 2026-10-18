@@ -1,4 +1,4 @@
-import { pgTable, text, integer, real, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, real, boolean, primaryKey } from 'drizzle-orm/pg-core';
 
 export const tenants = pgTable('tenants', {
   id: text('id').primaryKey(),
@@ -15,6 +15,9 @@ export const tenants = pgTable('tenants', {
   aiSystemPrompt: text('ai_system_prompt'),
   cancellationPolicy: text('cancellation_policy'),
   icalToken: text('ical_token'),
+  // Tenants on the shared platform number (no WABA of their own) are matched
+  // to incoming customers via this code instead of whatsappPhoneNumberId.
+  entryCode: text('entry_code').unique(),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
@@ -111,6 +114,30 @@ export const leads = pgTable('leads', {
   phone: text('phone').notNull(),
   status: text('status').notNull().default('new'), // new | contacted | converted | rejected
   source: text('source').notNull().default('landing'),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+/**
+ * Binds a customer's phone number to a tenant on the shared platform number.
+ * Many-to-many: a customer can message several businesses through the same
+ * shared number, each via its own entry-code link.
+ */
+export const customerTenantLinks = pgTable('customer_tenant_links', {
+  customerPhone: text('customer_phone').notNull(),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  lastActiveAt: text('last_active_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.customerPhone, table.tenantId] }),
+}));
+
+/**
+ * Short-lived "which business did you mean?" prompt state for a customer
+ * linked to more than one shared-number tenant. Cleared on reply or expiry.
+ */
+export const pendingTenantSelections = pgTable('pending_tenant_selections', {
+  customerPhone: text('customer_phone').primaryKey(),
+  tenantIds: text('tenant_ids').notNull(), // JSON array, in the order presented
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 

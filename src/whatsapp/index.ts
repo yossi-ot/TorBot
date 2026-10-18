@@ -1,5 +1,6 @@
 import { metaProvider } from './providers/meta.js';
 import { dialog360Provider } from './providers/dialog360.js';
+import { config } from '../config.js';
 import type {
   WhatsAppProvider,
   ProviderName,
@@ -33,6 +34,22 @@ export function credentialsFromTenant(tenant: {
     return {
       provider,
       credentials: { kind: 'dialog360', apiKey: tenant.dialog360ApiKey },
+    };
+  }
+
+  // Tenants on the shared platform number have no WABA of their own -
+  // send through the shared number's credentials instead.
+  if (!tenant.whatsappPhoneNumberId) {
+    if (!config.whatsapp.sharedPhoneNumberId || !config.whatsapp.sharedAccessToken) {
+      throw new Error('Tenant has no WhatsApp number and no shared platform number is configured');
+    }
+    return {
+      provider: 'meta',
+      credentials: {
+        kind: 'meta',
+        phoneNumberId: config.whatsapp.sharedPhoneNumberId,
+        accessToken: config.whatsapp.sharedAccessToken,
+      },
     };
   }
 

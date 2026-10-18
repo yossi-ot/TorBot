@@ -20,6 +20,8 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       timezone: tenant.timezone,
       aiSystemPrompt: tenant.aiSystemPrompt || '',
       cancellationPolicy: tenant.cancellationPolicy || '',
+      entryCode: tenant.entryCode || '',
+      hasOwnNumber: !!(tenant.whatsappPhoneNumberId && tenant.whatsappPhoneNumberId.length > 0),
     };
   });
 

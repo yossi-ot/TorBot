@@ -16,6 +16,8 @@ interface TenantSettings {
   timezone: string;
   aiSystemPrompt: string;
   cancellationPolicy: string;
+  entryCode: string;
+  hasOwnNumber: boolean;
 }
 
 interface WhatsAppStatus {
@@ -29,7 +31,7 @@ interface WhatsAppStatus {
 
 const emptySettings: TenantSettings = {
   name: '', phone: '', address: '', timezone: 'Asia/Jerusalem',
-  aiSystemPrompt: '', cancellationPolicy: '',
+  aiSystemPrompt: '', cancellationPolicy: '', entryCode: '', hasOwnNumber: false,
 };
 
 export default function Settings() {
@@ -319,6 +321,28 @@ export default function Settings() {
         </div>
       </section>
 
+      {!form.hasOwnNumber && form.entryCode && (
+        <section className="bg-white rounded-xl shadow-sm p-6 mb-4">
+          <h2 className="text-lg font-semibold text-gray-700 mb-4">הקישור שלך ל-WhatsApp</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            שתפו את הקישור הזה עם הלקוחות שלכם (באתר, באינסטגרם, בחתימת מייל) - הם יגיעו ישירות לצ'אט איתכם.
+          </p>
+          <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-mono text-gray-700" dir="ltr">
+              {window.location.origin}/w/{form.entryCode}
+            </p>
+            <button
+              onClick={() => navigator.clipboard.writeText(`${window.location.origin}/w/${form.entryCode}`)}
+              className="text-sm text-primary-600 hover:underline shrink-0"
+            >
+              העתק
+            </button>
+          </div>
+        </section>
+      )}
+
+      {form.hasOwnNumber && (
+      <>
       {/* WhatsApp Embedded Signup */}
       <section className="bg-white rounded-xl shadow-sm p-6 mb-4">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">חיבור WhatsApp</h2>
@@ -477,6 +501,8 @@ export default function Settings() {
           </div>
         )}
       </section>
+      </>
+      )}
 
       {/* Bot Settings */}
       <section className="bg-white rounded-xl shadow-sm p-6 mb-4">

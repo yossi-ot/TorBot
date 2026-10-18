@@ -5,6 +5,24 @@ import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import { signJwt, verifyJwt } from './middleware.js';
 
+/** Short, human-shareable code used in the tenant's WhatsApp entry link. */
+async function generateEntryCode(businessName: string): Promise<string> {
+  const prefix = businessName
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 8)
+    .toUpperCase() || 'BIZ';
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = `${prefix}${Math.floor(1000 + Math.random() * 9000)}`;
+    const [existing] = await db.select({ id: schema.tenants.id }).from(schema.tenants)
+      .where(eq(schema.tenants.entryCode, code));
+    if (!existing) return code;
+  }
+  // Astronomically unlikely, but fall back to something guaranteed unique.
+  return `${prefix}${Date.now()}`;
+}
+
 export function registerAuthRoutes(app: FastifyInstance) {
   // Login with email + password
   app.post('/api/auth/login', async (request, reply) => {
@@ -54,14 +72,17 @@ export function registerAuthRoutes(app: FastifyInstance) {
     const tenantId = uuid();
     const userId = uuid();
     const passwordHash = await bcrypt.hash(password, 10);
+    const entryCode = await generateEntryCode(businessName);
 
-    // Create tenant
+    // Create tenant - on the shared platform number by default. Businesses
+    // with their own approved WhatsApp number still connect it from Settings.
     await db.insert(schema.tenants).values({
       id: tenantId,
       name: businessName,
       phone,
       whatsappPhoneNumberId: '',
       whatsappAccessToken: '',
+      entryCode,
       timezone: 'Asia/Jerusalem',
       cancellationPolicy: 'ביטול עד 2 שעות לפני התור',
       icalToken: uuid(),

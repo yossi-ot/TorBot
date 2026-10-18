@@ -11,6 +11,7 @@ import { registerTestRoutes } from './test-chat.js';
 import { registerApiRoutes } from './api/index.js';
 import { registerLegalRoutes } from './legal.js';
 import { registerLandingRoute } from './landing.js';
+import { registerEntryLinkRoute } from './entry-link.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,6 +27,7 @@ registerCalendarRoutes(app);
 registerTestRoutes(app);
 registerLegalRoutes(app);
 registerLandingRoute(app);
+registerEntryLinkRoute(app);
 
 // Serve dashboard static files with SPA fallback
 app.register(fastifyStatic, {

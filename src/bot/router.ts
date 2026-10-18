@@ -13,6 +13,7 @@ import { normalizePhone } from '../utils/phone.js';
 import { dayjs } from '../utils/date.js';
 import { config } from '../config.js';
 import { withCostTracking, bucketCostAgorot } from './cost-tracker.js';
+import { resolveSharedTenant } from './shared-routing.js';
 
 interface IncomingMessage {
   phoneNumberId: string;
@@ -43,11 +44,18 @@ async function autoAssignDialog360Tenant(phoneNumberId: string) {
 }
 
 export async function handleIncomingMessage(msg: IncomingMessage): Promise<void> {
-  const tenant =
+  let tenant: typeof schema.tenants.$inferSelect | undefined =
     (await findTenant(msg.phoneNumberId)) ??
     (await autoAssignDialog360Tenant(msg.phoneNumberId));
+
+  // No tenant owns this phone_number_id directly - this is the shared
+  // platform number, so resolve by entry code / customer history instead.
   if (!tenant) {
-    console.warn(`No tenant found for phone_number_id: ${msg.phoneNumberId}`);
+    tenant = await resolveSharedTenant(normalizePhone(msg.from), msg.text.trim());
+  }
+
+  if (!tenant) {
+    console.warn(`No tenant found for phone_number_id: ${msg.phoneNumberId}, from: ${msg.from}`);
     return;
   }
 
