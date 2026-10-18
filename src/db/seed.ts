@@ -5,8 +5,32 @@ import bcrypt from 'bcrypt';
 // Uses the shared db connection, which honors USE_PGLITE for local testing.
 import { db, schema } from './index.js';
 
+async function applyManualWhatsAppCreds() {
+  const tenantId = process.env.MANUAL_WA_TENANT_ID;
+  const wabaId = process.env.MANUAL_WA_WABA_ID;
+  const phoneNumberId = process.env.MANUAL_WA_PHONE_ID;
+  const accessToken = process.env.MANUAL_WA_TOKEN;
+
+  if (!tenantId || !wabaId || !phoneNumberId || !accessToken) return;
+
+  await db.update(schema.tenants)
+    .set({
+      whatsappProvider: 'meta',
+      wabaId,
+      whatsappPhoneNumberId: phoneNumberId,
+      whatsappAccessToken: accessToken,
+      tokenExpiresAt: null,
+      dialog360ApiKey: null,
+    })
+    .where(eq(schema.tenants.id, tenantId));
+
+  console.log(`Applied manual WhatsApp credentials to tenant "${tenantId}".`);
+}
+
 async function seed() {
   console.log('Seeding database...');
+
+  await applyManualWhatsAppCreds();
 
   // Backfill icalToken for any tenant missing one
   const missingTokens = await db.select({ id: schema.tenants.id }).from(schema.tenants)
