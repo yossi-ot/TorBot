@@ -17,7 +17,7 @@ export const tenants = pgTable('tenants', {
   icalToken: text('ical_token'),
   // Tenants on the shared platform number (no WABA of their own) are matched
   // to incoming customers via this code instead of whatsappPhoneNumberId.
-  entryCode: text('entry_code').unique(),
+  entryCode: text('entry_code'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
