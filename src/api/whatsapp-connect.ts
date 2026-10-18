@@ -184,6 +184,36 @@ export function registerWhatsAppConnectRoutes(app: FastifyInstance) {
     }
   });
 
+  // Manually load credentials obtained outside Embedded Signup (e.g. a
+  // System User permanent token). Protected by the same tenant auth as
+  // every other /api route here - called from the browser console while
+  // logged into the dashboard, so the token never has to be pasted anywhere else.
+  app.post('/api/whatsapp/manual-connect', async (request, reply) => {
+    const tenantId = (request as any).tenantId;
+    const body = request.body as {
+      wabaId?: string;
+      phoneNumberId?: string;
+      accessToken?: string;
+    };
+
+    if (!body.wabaId || !body.phoneNumberId || !body.accessToken) {
+      return reply.code(400).send({ error: 'Missing wabaId, phoneNumberId or accessToken' });
+    }
+
+    await db.update(schema.tenants)
+      .set({
+        whatsappProvider: 'meta',
+        wabaId: body.wabaId,
+        whatsappPhoneNumberId: body.phoneNumberId,
+        whatsappAccessToken: body.accessToken,
+        tokenExpiresAt: null,
+        dialog360ApiKey: null,
+      })
+      .where(eq(schema.tenants.id, tenantId));
+
+    return { ok: true };
+  });
+
   // Get WhatsApp connection status
   app.get('/api/whatsapp/status', async (request) => {
     const tenantId = (request as any).tenantId;
