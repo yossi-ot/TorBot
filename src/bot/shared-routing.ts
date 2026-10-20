@@ -47,7 +47,7 @@ async function askWhichBusiness(customerPhone: string, tenants: Tenant[]) {
   const list = tenants.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
   // Any of the candidate tenants shares the same platform number/credentials.
   await sendWhatsAppMessage({
-    ...credentialsFromTenant(tenants[0]),
+    ...(await credentialsFromTenant(tenants[0])),
     to: customerPhone,
     text: `לאיזה עסק הפנייה שלך?\n${list}\n\nהשיבו במספר המתאים.`,
   });
@@ -55,10 +55,17 @@ async function askWhichBusiness(customerPhone: string, tenants: Tenant[]) {
 
 /**
  * Resolves which tenant a message on the shared platform number belongs to.
- * Returns undefined when nothing could be resolved this turn (either the
- * customer is unknown, or we just asked them to disambiguate).
+ * `defaultTenant` (the shared-number owner) is used when the customer has no
+ * code and no history at all - today that keeps every "cold" message on the
+ * number landing on the owner, exactly like before this number was shared.
+ * Returns undefined only when there's genuinely no default and no match
+ * (or we just asked the customer to disambiguate).
  */
-export async function resolveSharedTenant(customerPhone: string, text: string): Promise<Tenant | undefined> {
+export async function resolveSharedTenant(
+  customerPhone: string,
+  text: string,
+  defaultTenant?: Tenant,
+): Promise<Tenant | undefined> {
   const trimmed = text.trim();
 
   // 1. Are we waiting on a "which business?" reply from this customer?
@@ -90,7 +97,10 @@ export async function resolveSharedTenant(customerPhone: string, text: string): 
   // 3. Fall back to businesses this customer has already talked to before.
   const links = await db.select().from(schema.customerTenantLinks)
     .where(eq(schema.customerTenantLinks.customerPhone, customerPhone));
-  if (links.length === 0) return undefined;
+  if (links.length === 0) {
+    if (defaultTenant) await linkCustomerToTenant(customerPhone, defaultTenant.id);
+    return defaultTenant;
+  }
 
   if (links.length === 1) {
     const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, links[0].tenantId));

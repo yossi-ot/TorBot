@@ -6,12 +6,10 @@ export const config = {
   whatsapp: {
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
     // International-format number (no "+") behind every shared-platform
-    // tenant's entry link, e.g. "972501234567". Set once a shared number exists.
+    // tenant's entry link, e.g. "972501234567" - just for building wa.me
+    // links; the actual sending credentials live on the owner tenant row
+    // (see whatsapp/index.ts getSharedNumberOwner).
     sharedNumber: process.env.SHARED_WA_NUMBER || '',
-    // Credentials for that same shared number, used to send on behalf of
-    // every tenant that has no WABA of its own (whatsappPhoneNumberId is empty).
-    sharedPhoneNumberId: process.env.SHARED_WA_PHONE_NUMBER_ID || '',
-    sharedAccessToken: process.env.SHARED_WA_ACCESS_TOKEN || '',
   },
   meta: {
     appId: process.env.META_APP_ID || '',

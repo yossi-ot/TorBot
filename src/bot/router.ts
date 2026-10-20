@@ -2,7 +2,7 @@ import { db, schema } from '../db/index.js';
 import { eq, and } from 'drizzle-orm';
 import { getSession, createSession, Session, updateSession } from './session.js';
 import { sendWhatsAppMessage } from '../whatsapp/sender.js';
-import { credentialsFromTenant } from '../whatsapp/index.js';
+import { credentialsFromTenant, getSharedNumberOwner } from '../whatsapp/index.js';
 import { handleGreeting } from './flows/greeting.js';
 import { startBooking, startBookingWithEntities, handleServiceSelection, handleDateSelection, handleTimeSelection, handleConfirmation } from './flows/booking.js';
 import { startCancel, handleCancelSelection } from './flows/cancel.js';
@@ -44,14 +44,20 @@ async function autoAssignDialog360Tenant(phoneNumberId: string) {
 }
 
 export async function handleIncomingMessage(msg: IncomingMessage): Promise<void> {
-  let tenant: typeof schema.tenants.$inferSelect | undefined =
-    (await findTenant(msg.phoneNumberId)) ??
-    (await autoAssignDialog360Tenant(msg.phoneNumberId));
+  const sharedOwner = await getSharedNumberOwner();
+  const isSharedNumberMessage = !!sharedOwner && msg.phoneNumberId === sharedOwner.whatsappPhoneNumberId;
 
-  // No tenant owns this phone_number_id directly - this is the shared
-  // platform number, so resolve by entry code / customer history instead.
-  if (!tenant) {
-    tenant = await resolveSharedTenant(normalizePhone(msg.from), msg.text.trim());
+  let tenant: typeof schema.tenants.$inferSelect | undefined;
+
+  if (isSharedNumberMessage) {
+    // The owner's own number is shared platform-wide - resolve by entry
+    // code / customer history instead of a straight phone_number_id match,
+    // falling back to the owner itself for anyone with no code or history.
+    tenant = await resolveSharedTenant(normalizePhone(msg.from), msg.text.trim(), sharedOwner);
+  } else {
+    tenant =
+      (await findTenant(msg.phoneNumberId)) ??
+      (await autoAssignDialog360Tenant(msg.phoneNumberId));
   }
 
   if (!tenant) {
@@ -65,7 +71,7 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     session = await createSession(tenant.id, phone, msg.contactName);
   }
 
-  const { provider, credentials } = credentialsFromTenant(tenant);
+  const { provider, credentials } = await credentialsFromTenant(tenant);
 
   // Fire a context-aware placeholder immediately so the customer never sees
   // silence — 360dialog doesn't relay WhatsApp's native typing indicator.

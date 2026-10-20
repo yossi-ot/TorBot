@@ -18,6 +18,9 @@ export const tenants = pgTable('tenants', {
   // Tenants on the shared platform number (no WABA of their own) are matched
   // to incoming customers via this code instead of whatsappPhoneNumberId.
   entryCode: text('entry_code'),
+  // The one tenant whose WABA/number is physically shared by every
+  // no-own-number tenant. There should be exactly one of these.
+  isSharedNumberOwner: boolean('is_shared_number_owner').notNull().default(false),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 

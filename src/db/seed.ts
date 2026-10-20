@@ -4,6 +4,46 @@ import { v4 as uuid } from 'uuid';
 import bcrypt from 'bcrypt';
 // Uses the shared db connection, which honors USE_PGLITE for local testing.
 import { db, schema } from './index.js';
+import { generateEntryCode } from '../utils/entry-code.js';
+
+/**
+ * Marks the demo salon as the shared-number owner (its WABA is the one
+ * physical number every no-own-number tenant sends/receives through), and
+ * backfills links for its existing customers so they keep working exactly
+ * as before - no code needed for people who already know this number.
+ */
+async function migrateSharedNumberOwner() {
+  const ownerTenantId = 'demo-salon';
+  const [owner] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, ownerTenantId));
+  if (!owner) return;
+
+  if (!owner.isSharedNumberOwner) {
+    await db.update(schema.tenants).set({ isSharedNumberOwner: true }).where(eq(schema.tenants.id, ownerTenantId));
+    console.log(`Marked tenant "${ownerTenantId}" as the shared-number owner.`);
+  }
+
+  if (!owner.entryCode) {
+    const entryCode = await generateEntryCode(owner.name);
+    await db.update(schema.tenants).set({ entryCode }).where(eq(schema.tenants.id, ownerTenantId));
+    console.log(`Assigned entry code ${entryCode} to tenant "${ownerTenantId}".`);
+  }
+
+  const existingCustomers = await db.select({ phone: schema.customers.phone }).from(schema.customers)
+    .where(eq(schema.customers.tenantId, ownerTenantId));
+
+  for (const c of existingCustomers) {
+    const now = new Date().toISOString();
+    await db.insert(schema.customerTenantLinks).values({
+      customerPhone: c.phone,
+      tenantId: ownerTenantId,
+      createdAt: now,
+      lastActiveAt: now,
+    }).onConflictDoNothing();
+  }
+  if (existingCustomers.length > 0) {
+    console.log(`Backfilled customer-tenant links for ${existingCustomers.length} existing customer(s) of "${ownerTenantId}".`);
+  }
+}
 
 async function applyManualWhatsAppCreds() {
   const tenantId = process.env.MANUAL_WA_TENANT_ID;
@@ -31,6 +71,7 @@ async function seed() {
   console.log('Seeding database...');
 
   await applyManualWhatsAppCreds();
+  await migrateSharedNumberOwner();
 
   // Backfill icalToken for any tenant missing one
   const missingTokens = await db.select({ id: schema.tenants.id }).from(schema.tenants)

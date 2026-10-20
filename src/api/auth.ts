@@ -4,24 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import { signJwt, verifyJwt } from './middleware.js';
-
-/** Short, human-shareable code used in the tenant's WhatsApp entry link. */
-async function generateEntryCode(businessName: string): Promise<string> {
-  const prefix = businessName
-    .normalize('NFKD')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .slice(0, 8)
-    .toUpperCase() || 'BIZ';
-
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = `${prefix}${Math.floor(1000 + Math.random() * 9000)}`;
-    const [existing] = await db.select({ id: schema.tenants.id }).from(schema.tenants)
-      .where(eq(schema.tenants.entryCode, code));
-    if (!existing) return code;
-  }
-  // Astronomically unlikely, but fall back to something guaranteed unique.
-  return `${prefix}${Date.now()}`;
-}
+import { generateEntryCode } from '../utils/entry-code.js';
 
 export function registerAuthRoutes(app: FastifyInstance) {
   // Login with email + password

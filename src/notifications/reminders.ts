@@ -59,7 +59,7 @@ async function sendReminders() {
     const message = `תזכורת מ-${appt.tenantName}: ${subject} ל-${appt.serviceName} ${formatDateHebrew(startDate)} בשעה ${startDate.format('HH:mm')}.`;
 
     try {
-      const { provider, credentials } = credentialsFromTenant(appt);
+      const { provider, credentials } = await credentialsFromTenant(appt);
       await sendWhatsAppMessage({
         provider,
         credentials,
