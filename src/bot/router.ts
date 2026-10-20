@@ -67,6 +67,7 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
 
   const phone = normalizePhone(msg.from);
   let session = await getSession(tenant.id, phone);
+  const isFirstMessageToTenant = !session;
   if (!session) {
     session = await createSession(tenant.id, phone, msg.contactName);
   }
@@ -92,6 +93,13 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     console.error('routeMessage error:', err);
     response = 'משהו השתבש. תרצה לנסות שוב?';
   }
+
+  // On the shared platform number, several businesses share the same
+  // WhatsApp identity - say which one this is on the customer's first message.
+  if (isFirstMessageToTenant && isSharedNumberMessage) {
+    response = `הגעת ל${tenant.name}.\n${response}`;
+  }
+
   // Make sure the placeholder lands before the real response.
   await placeholderPromise;
 
