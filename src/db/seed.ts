@@ -14,6 +14,7 @@ import { generateEntryCode } from '../utils/entry-code.js';
 async function bootstrapPlatformAdmin() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  console.log(`bootstrapPlatformAdmin: email present=${!!email}, password present=${!!password}`);
   if (!email || !password) return;
 
   const passwordHash = await bcrypt.hash(password, 10);
