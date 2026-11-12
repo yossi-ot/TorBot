@@ -9,13 +9,26 @@ import { generateEntryCode } from '../utils/entry-code.js';
 /**
  * One-off creation/reset of the platform_admin user from temporary Fly
  * secrets, so the password never has to pass through chat or git. Delete
- * BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD once this has run.
+ * BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD (and BOOTSTRAP_ADMIN_REPLACE_EMAIL,
+ * if used) once this has run.
  */
 async function bootstrapPlatformAdmin() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const replaceEmail = process.env.BOOTSTRAP_ADMIN_REPLACE_EMAIL;
   console.log(`bootstrapPlatformAdmin: email present=${!!email}, password present=${!!password}`);
   if (!email || !password) return;
+
+  // Changing the admin's email: remove the old platform_admin account so
+  // there's exactly one, not two.
+  if (replaceEmail && replaceEmail.toLowerCase() !== email.toLowerCase()) {
+    const [old] = await db.select().from(schema.users)
+      .where(eq(schema.users.email, replaceEmail.toLowerCase()));
+    if (old && old.role === 'platform_admin') {
+      await db.delete(schema.users).where(eq(schema.users.id, old.id));
+      console.log(`Removed previous platform admin "${replaceEmail}".`);
+    }
+  }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const [existing] = await db.select().from(schema.users)
