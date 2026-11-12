@@ -13,10 +13,10 @@ import { generateEntryCode } from '../utils/entry-code.js';
  * if used) once this has run.
  */
 async function bootstrapPlatformAdmin() {
-  const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
-  const replaceEmail = process.env.BOOTSTRAP_ADMIN_REPLACE_EMAIL;
-  console.log(`bootstrapPlatformAdmin: email present=${!!email}, password present=${!!password}`);
+  const replaceEmail = process.env.BOOTSTRAP_ADMIN_REPLACE_EMAIL?.trim();
+  console.log(`bootstrapPlatformAdmin: email present=${!!email}, password present=${!!password}, replaceEmail present=${!!replaceEmail}`);
   if (!email || !password) return;
 
   // Changing the admin's email: remove the old platform_admin account so
@@ -24,6 +24,7 @@ async function bootstrapPlatformAdmin() {
   if (replaceEmail && replaceEmail.toLowerCase() !== email.toLowerCase()) {
     const [old] = await db.select().from(schema.users)
       .where(eq(schema.users.email, replaceEmail.toLowerCase()));
+    console.log(`bootstrapPlatformAdmin: looked up replaceEmail "${replaceEmail.toLowerCase()}" -> found=${!!old}, role=${old?.role}`);
     if (old && old.role === 'platform_admin') {
       await db.delete(schema.users).where(eq(schema.users.id, old.id));
       console.log(`Removed previous platform admin "${replaceEmail}".`);
