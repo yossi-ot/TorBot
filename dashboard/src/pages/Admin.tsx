@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { api, setToken, stashAdminToken } from '../api';
 
 interface Tenant {
   id: string;
@@ -15,6 +16,8 @@ export default function Admin() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [enteringId, setEnteringId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.getTenants()
@@ -22,6 +25,19 @@ export default function Admin() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const enterAsOwner = async (tenantId: string) => {
+    setEnteringId(tenantId);
+    try {
+      const { token } = await api.impersonateTenant(tenantId);
+      stashAdminToken();
+      setToken(token);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'שגיאה בכניסה לעסק');
+      setEnteringId(null);
+    }
+  };
 
   if (loading) return <div className="text-center py-12 text-gray-500">טוען...</div>;
   if (error) return <div className="text-center py-12 text-red-500">{error}</div>;
@@ -43,6 +59,7 @@ export default function Admin() {
               <th className="text-center px-4 py-3 font-medium">שירותים</th>
               <th className="text-center px-4 py-3 font-medium">תורים</th>
               <th className="text-right px-4 py-3 font-medium">תאריך הרשמה</th>
+              <th className="text-center px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -55,6 +72,15 @@ export default function Admin() {
                 <td className="px-4 py-3 text-center text-gray-600">{tenant.appointments}</td>
                 <td className="px-4 py-3 text-gray-500">
                   {new Date(tenant.createdAt).toLocaleDateString('he-IL')}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <button
+                    onClick={() => enterAsOwner(tenant.id)}
+                    disabled={enteringId === tenant.id}
+                    className="text-primary-600 hover:underline text-sm disabled:opacity-50"
+                  >
+                    {enteringId === tenant.id ? 'נכנס...' : 'כניסה כבעלים'}
+                  </button>
                 </td>
               </tr>
             ))}

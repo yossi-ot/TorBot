@@ -27,7 +27,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'אימייל או סיסמה שגויים' });
     }
 
-    const token = signJwt({ userId: user.id, tenantId: user.tenantId, role: user.role });
+    const token = signJwt({ userId: user.id, tenantId: user.tenantId ?? '', role: user.role });
     return { token };
   });
 
@@ -125,7 +125,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'User not found' });
     }
 
-    const token = signJwt({ userId: user.id, tenantId: user.tenantId, role: user.role });
+    const token = signJwt({ userId: user.id, tenantId: user.tenantId ?? '', role: user.role });
     return { token };
   });
 }

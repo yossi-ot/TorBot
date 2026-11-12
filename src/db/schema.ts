@@ -28,7 +28,8 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  // Null for a platform_admin, who isn't tied to any one business.
+  tenantId: text('tenant_id').references(() => tenants.id),
   role: text('role').notNull().default('owner'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });

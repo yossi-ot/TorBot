@@ -1,23 +1,35 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { clearToken } from '../api';
+import { clearToken, isPlatformAdmin, isImpersonating, returnToAdmin } from '../api';
 import Logo from './Logo';
 
-const navItems = [
+const businessNavItems = [
   { to: '/', label: 'תורים', icon: '📅' },
   { to: '/services', label: 'שירותים', icon: '✂️' },
   { to: '/working-hours', label: 'שעות פעילות', icon: '🕐' },
   { to: '/stats', label: 'סטטיסטיקות', icon: '📊' },
   { to: '/settings', label: 'הגדרות', icon: '⚙️' },
+];
+
+const adminNavItems = [
   { to: '/admin', label: 'ניהול עסקים', icon: '🏢' },
   { to: '/leads', label: 'לידים', icon: '🎯' },
 ];
 
 export default function Layout() {
   const navigate = useNavigate();
+  const impersonating = isImpersonating();
+  const navItems = impersonating
+    ? businessNavItems
+    : [...businessNavItems, ...(isPlatformAdmin() ? adminNavItems : [])];
 
   const handleLogout = () => {
     clearToken();
     navigate('/login');
+  };
+
+  const handleReturnToAdmin = () => {
+    returnToAdmin();
+    navigate('/admin');
   };
 
   return (
@@ -48,6 +60,14 @@ export default function Layout() {
           ))}
         </nav>
         <div className="p-2 border-t border-gray-200">
+          {impersonating && (
+            <button
+              onClick={handleReturnToAdmin}
+              className="w-full text-start px-3 py-2 text-sm text-primary-600 hover:bg-gray-100 rounded-lg transition-colors mb-1"
+            >
+              ← חזרה לניהול
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="w-full text-start px-3 py-2 text-sm text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-100 transition-colors"

@@ -7,6 +7,37 @@ import { db, schema } from './index.js';
 import { generateEntryCode } from '../utils/entry-code.js';
 
 /**
+ * One-off creation/reset of the platform_admin user from temporary Fly
+ * secrets, so the password never has to pass through chat or git. Delete
+ * BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD once this has run.
+ */
+async function bootstrapPlatformAdmin() {
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  if (!email || !password) return;
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const [existing] = await db.select().from(schema.users)
+    .where(eq(schema.users.email, email.toLowerCase()));
+
+  if (existing) {
+    await db.update(schema.users)
+      .set({ passwordHash, role: 'platform_admin', tenantId: null })
+      .where(eq(schema.users.id, existing.id));
+    console.log(`Updated platform admin "${email}".`);
+  } else {
+    await db.insert(schema.users).values({
+      id: uuid(),
+      email: email.toLowerCase(),
+      passwordHash,
+      tenantId: null,
+      role: 'platform_admin',
+    });
+    console.log(`Created platform admin "${email}".`);
+  }
+}
+
+/**
  * Marks the demo salon as the shared-number owner (its WABA is the one
  * physical number every no-own-number tenant sends/receives through), and
  * backfills links for its existing customers so they keep working exactly
@@ -72,6 +103,7 @@ async function seed() {
 
   await applyManualWhatsAppCreds();
   await migrateSharedNumberOwner();
+  await bootstrapPlatformAdmin();
 
   // Backfill icalToken for any tenant missing one
   const missingTokens = await db.select({ id: schema.tenants.id }).from(schema.tenants)

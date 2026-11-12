@@ -17,7 +17,7 @@ export function isAuthenticated(): boolean {
 }
 
 /** Decode JWT payload without verification (client-side) */
-function decodeJwtPayload(token: string): { exp?: number } | null {
+function decodeJwtPayload(token: string): { exp?: number; role?: string; tenantId?: string } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -25,6 +25,40 @@ function decodeJwtPayload(token: string): { exp?: number } | null {
   } catch {
     return null;
   }
+}
+
+export function getRole(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  return decodeJwtPayload(token)?.role || null;
+}
+
+/** True for the real platform_admin role, or (legacy) the demo-salon owner. */
+export function isPlatformAdmin(): boolean {
+  const token = getToken();
+  if (!token) return false;
+  const payload = decodeJwtPayload(token);
+  return payload?.role === 'platform_admin' || (payload?.tenantId === 'demo-salon' && payload?.role === 'owner');
+}
+
+// A platform admin "becomes" a tenant via impersonation - their own token
+// is stashed here so they can get back to the admin view afterward.
+const ADMIN_TOKEN_KEY = 'torbot_admin_token';
+
+export function isImpersonating(): boolean {
+  return !!localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+export function stashAdminToken() {
+  const current = getToken();
+  if (current) localStorage.setItem(ADMIN_TOKEN_KEY, current);
+}
+
+export function returnToAdmin() {
+  const adminToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+  if (!adminToken) return;
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+  setToken(adminToken);
 }
 
 let refreshing: Promise<void> | null = null;
@@ -153,6 +187,8 @@ export const api = {
 
   // Admin
   getTenants: () => request<any[]>('/admin/tenants'),
+  impersonateTenant: (tenantId: string) =>
+    request<{ token: string; tenantName: string }>(`/admin/impersonate/${tenantId}`, { method: 'POST', body: '{}' }),
 
   // Leads (super-admin)
   getLeads: () => request<any[]>('/leads'),

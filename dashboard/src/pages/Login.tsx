@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { api, setToken } from '../api';
+import { api, setToken, getRole } from '../api';
 import Logo from '../components/Logo';
 
 export default function Login() {
@@ -17,7 +17,7 @@ export default function Login() {
     try {
       const { token } = await api.login(email, password);
       setToken(token);
-      navigate('/');
+      navigate(getRole() === 'platform_admin' ? '/admin' : '/');
     } catch (err: any) {
       setError(err.message || 'שגיאה בהתחברות');
     } finally {
