@@ -1,13 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { db, schema } from '../db/index.js';
 import { eq, sql } from 'drizzle-orm';
-import { signJwt } from './middleware.js';
-
-/** platform_admin is the real cross-tenant role; the demo-salon owner check
- *  is kept only for backwards compatibility with how this worked before. */
-function isPlatformAdmin(request: any): boolean {
-  return request.role === 'platform_admin' || (request.tenantId === 'demo-salon' && request.role === 'owner');
-}
+import { signJwt, isPlatformAdmin } from './middleware.js';
 
 export function registerAdminRoutes(app: FastifyInstance) {
   // Get all tenants with stats

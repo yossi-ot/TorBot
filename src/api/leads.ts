@@ -2,11 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { db, schema } from '../db/index.js';
 import { desc, eq } from 'drizzle-orm';
 import { v4 as uuid } from 'uuid';
-
-/** Only the demo-salon owner acts as platform super-admin (same rule as admin.ts). */
-function isSuperAdmin(request: any): boolean {
-  return request.tenantId === 'demo-salon' && request.role === 'owner';
-}
+import { isPlatformAdmin } from './middleware.js';
 
 export function registerLeadRoutes(app: FastifyInstance) {
   // PUBLIC: capture a lead from the landing page (exempted from auth in api/index.ts)
@@ -26,13 +22,13 @@ export function registerLeadRoutes(app: FastifyInstance) {
 
   // SUPER-ADMIN: list all leads (newest first)
   app.get('/api/leads', async (request, reply) => {
-    if (!isSuperAdmin(request)) return reply.code(403).send({ error: 'אין הרשאה' });
+    if (!isPlatformAdmin(request)) return reply.code(403).send({ error: 'אין הרשאה' });
     return db.select().from(schema.leads).orderBy(desc(schema.leads.createdAt));
   });
 
   // SUPER-ADMIN: update a lead's status
   app.patch('/api/leads/:id', async (request, reply) => {
-    if (!isSuperAdmin(request)) return reply.code(403).send({ error: 'אין הרשאה' });
+    if (!isPlatformAdmin(request)) return reply.code(403).send({ error: 'אין הרשאה' });
     const { id } = request.params as { id: string };
     const { status } = (request.body || {}) as { status?: string };
     const allowed = ['new', 'contacted', 'converted', 'rejected'];

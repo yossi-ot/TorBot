@@ -61,3 +61,14 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   (request as any).userId = payload.userId;
   (request as any).role = payload.role;
 }
+
+/**
+ * The one role allowed to act across every tenant. The demo-salon-owner
+ * check is legacy backwards compatibility from before platform_admin
+ * existed - new code should rely on the role alone.
+ */
+export function isPlatformAdmin(request: FastifyRequest): boolean {
+  const role = (request as any).role;
+  const tenantId = (request as any).tenantId;
+  return role === 'platform_admin' || (tenantId === 'demo-salon' && role === 'owner');
+}
