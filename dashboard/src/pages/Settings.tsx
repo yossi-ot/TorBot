@@ -18,6 +18,7 @@ interface TenantSettings {
   cancellationPolicy: string;
   entryCode: string;
   hasOwnNumber: boolean;
+  bufferMinutes: number;
 }
 
 interface WhatsAppStatus {
@@ -32,6 +33,7 @@ interface WhatsAppStatus {
 const emptySettings: TenantSettings = {
   name: '', phone: '', address: '', timezone: 'Asia/Jerusalem',
   aiSystemPrompt: '', cancellationPolicy: '', entryCode: '', hasOwnNumber: false,
+  bufferMinutes: 10,
 };
 
 export default function Settings() {
@@ -527,6 +529,24 @@ export default function Settings() {
               rows={4}
               placeholder="הנחיות מותאמות אישית לבוט WhatsApp (אופציונלי)"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">זמן מרווח בין תורים (בדקות)</label>
+            <input
+              type="number"
+              min={0}
+              step={5}
+              value={form.bufferMinutes}
+              onChange={(e) => {
+                const value = Math.max(0, parseInt(e.target.value, 10) || 0);
+                setForm((prev) => ({ ...prev, bufferMinutes: value }));
+                setMessage(null);
+              }}
+              className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              הזמן שנשמר פנוי אחרי כל טיפול לפני שהתור הבא יכול להתחיל
+            </p>
           </div>
         </div>
       </section>

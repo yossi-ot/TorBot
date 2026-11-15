@@ -8,9 +8,33 @@ export interface TimeSlot {
   staffId?: string;
 }
 
+interface MinuteInterval {
+  start: number; // minutes from midnight of the target date
+  end: number;
+}
+
+/** Subtracts busy intervals from a window, returning the remaining free sub-windows. */
+function subtractIntervals(window: MinuteInterval, busy: MinuteInterval[]): MinuteInterval[] {
+  let free = [window];
+  for (const b of busy) {
+    const next: MinuteInterval[] = [];
+    for (const f of free) {
+      if (b.end <= f.start || b.start >= f.end) {
+        next.push(f);
+        continue;
+      }
+      if (b.start > f.start) next.push({ start: f.start, end: Math.min(b.start, f.end) });
+      if (b.end < f.end) next.push({ start: Math.max(b.end, f.start), end: f.end });
+    }
+    free = next;
+  }
+  return free.filter(f => f.end > f.start);
+}
+
 /**
  * Get available time slots for a given tenant, date, and service duration.
- * Computes: working_hours - existing_appointments - blocked_slots
+ * Computes: working_hours - existing_appointments (each padded by the
+ * tenant's buffer minutes on both sides) - blocked_slots - active locks.
  */
 export async function getAvailableSlots(
   tenantId: string,
@@ -21,6 +45,8 @@ export async function getAvailableSlots(
   excludeLocksByCustomerPhone: string = '__unknown__',
 ): Promise<TimeSlot[]> {
   const dayOfWeek = dayjs(date).day(); // 0=Sunday
+  const dayStart = dayjs(date).startOf('day');
+  const toMinutes = (iso: string) => dayjs(iso).diff(dayStart, 'minute');
 
   // 1. Get working hours for this day
   const hoursQuery: any[] = [
@@ -36,6 +62,11 @@ export async function getAvailableSlots(
     .where(and(...hoursQuery));
 
   if (hours.length === 0) return [];
+
+  // 1b. Tenant's required gap between one appointment and the next
+  const [tenant] = await db.select({ bufferMinutes: schema.tenants.bufferMinutes })
+    .from(schema.tenants).where(eq(schema.tenants.id, tenantId));
+  const bufferMinutes = tenant?.bufferMinutes ?? 0;
 
   // 2. Get existing appointments for this date
   const dateStart = `${date}T00:00:00`;
@@ -60,54 +91,67 @@ export async function getAvailableSlots(
   // 3b. Get active slot locks held by other customers for this date
   const activeLocks = await getActiveLocksOnDate(tenantId, date, excludeLocksByCustomerPhone);
 
-  // 4. Generate all possible slots in 30-minute intervals
+  // Busy intervals: appointments and pending locks are padded with the
+  // buffer on both sides, so the next slot only opens up once the gap has
+  // passed; blocked slots (owner-set breaks/days off) are used as-is.
+  const busy: MinuteInterval[] = [
+    ...existingAppointments.map(a => ({
+      start: toMinutes(a.startTime) - bufferMinutes,
+      end: toMinutes(a.endTime) + bufferMinutes,
+    })),
+    ...activeLocks.map(lk => ({
+      start: toMinutes(lk.startTime) - bufferMinutes,
+      end: toMinutes(lk.endTime) + bufferMinutes,
+    })),
+    ...blockedSlots.map(bs => ({
+      start: toMinutes(bs.startDatetime),
+      end: toMinutes(bs.endDatetime),
+    })),
+  ];
+
+  // 4. Generate slots: the regular 30-minute grid, plus (when a buffer
+  // shifts it off-grid) the exact moment each free window opens up - so a
+  // 45-min treatment at 08:00 with a 10-min buffer still offers 08:55, not
+  // just the next grid line at 09:00/09:30.
   const available: TimeSlot[] = [];
   const slotInterval = 30; // minutes
+  const seenTimes = new Set<string>();
+  const now = dayjs();
+  const isToday = dayjs(date).isSame(now, 'day');
+  const nowMinutes = now.diff(dayStart, 'minute');
 
   for (const wh of hours) {
     const [startH, startM] = wh.startTime.split(':').map(Number);
     const [endH, endM] = wh.endTime.split(':').map(Number);
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
+    const whWindow: MinuteInterval = { start: startH * 60 + startM, end: endH * 60 + endM };
 
-    for (let m = startMinutes; m + durationMinutes <= endMinutes; m += slotInterval) {
-      const slotStart = dayjs(date)
-        .hour(Math.floor(m / 60))
-        .minute(m % 60)
-        .second(0);
-      const slotEnd = slotStart.add(durationMinutes, 'minute');
-      const slotStartISO = slotStart.format('YYYY-MM-DDTHH:mm:ss');
-      const slotEndISO = slotEnd.format('YYYY-MM-DDTHH:mm:ss');
+    const freeWindows = subtractIntervals(whWindow, busy);
 
-      // Check if slot overlaps with any appointment
-      const hasConflict = existingAppointments.some(appt => {
-        return slotStartISO < appt.endTime && slotEndISO > appt.startTime;
+    const candidates = new Set<number>();
+    for (let m = whWindow.start; m + durationMinutes <= whWindow.end; m += slotInterval) {
+      candidates.add(m);
+    }
+    for (const free of freeWindows) {
+      if (free.start + durationMinutes <= free.end) candidates.add(free.start);
+    }
+
+    for (const m of candidates) {
+      if (isToday && m <= nowMinutes) continue;
+      const fits = freeWindows.some(f => f.start <= m && m + durationMinutes <= f.end);
+      if (!fits) continue;
+
+      const key = `${m}:${wh.staffId || ''}`;
+      if (seenTimes.has(key)) continue;
+      seenTimes.add(key);
+
+      available.push({
+        time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
+        staffId: wh.staffId || undefined,
       });
-
-      // Check if slot overlaps with any blocked slot
-      const isBlocked = blockedSlots.some(bs => {
-        return slotStartISO < bs.endDatetime && slotEndISO > bs.startDatetime;
-      });
-
-      // Check if slot is locked by another customer
-      const isLocked = activeLocks.some(lk => {
-        return slotStartISO < lk.endTime && slotEndISO > lk.startTime;
-      });
-
-      // Don't show past slots for today
-      if (dayjs(date).isSame(dayjs(), 'day') && slotStart.isBefore(dayjs())) {
-        continue;
-      }
-
-      if (!hasConflict && !isBlocked && !isLocked) {
-        available.push({
-          time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
-          staffId: wh.staffId || undefined,
-        });
-      }
     }
   }
 
+  available.sort((a, b) => a.time.localeCompare(b.time));
   return available;
 }
 

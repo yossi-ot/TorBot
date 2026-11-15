@@ -22,11 +22,12 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       cancellationPolicy: tenant.cancellationPolicy || '',
       entryCode: tenant.entryCode || '',
       hasOwnNumber: !!(tenant.whatsappPhoneNumberId && tenant.whatsappPhoneNumberId.length > 0),
+      bufferMinutes: tenant.bufferMinutes,
     };
   });
 
   // Update tenant settings
-  app.put('/api/settings', async (request) => {
+  app.put('/api/settings', async (request, reply) => {
     const tenantId = (request as any).tenantId;
     const body = request.body as {
       name?: string;
@@ -35,15 +36,22 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       timezone?: string;
       aiSystemPrompt?: string;
       cancellationPolicy?: string;
+      bufferMinutes?: number;
     };
 
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, string | number> = {};
     if (body.name !== undefined) updateData.name = body.name;
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.address !== undefined) updateData.address = body.address;
     if (body.timezone !== undefined) updateData.timezone = body.timezone;
     if (body.aiSystemPrompt !== undefined) updateData.aiSystemPrompt = body.aiSystemPrompt;
     if (body.cancellationPolicy !== undefined) updateData.cancellationPolicy = body.cancellationPolicy;
+    if (body.bufferMinutes !== undefined) {
+      if (!Number.isInteger(body.bufferMinutes) || body.bufferMinutes < 0) {
+        return reply.code(400).send({ error: 'זמן המרווח חייב להיות מספר שלם וחיובי' });
+      }
+      updateData.bufferMinutes = body.bufferMinutes;
+    }
 
     await db.update(schema.tenants)
       .set(updateData)

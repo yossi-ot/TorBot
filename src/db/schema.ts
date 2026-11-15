@@ -21,6 +21,8 @@ export const tenants = pgTable('tenants', {
   // The one tenant whose WABA/number is physically shared by every
   // no-own-number tenant. There should be exactly one of these.
   isSharedNumberOwner: boolean('is_shared_number_owner').notNull().default(false),
+  // Minimum gap, in minutes, kept free between one appointment and the next.
+  bufferMinutes: integer('buffer_minutes').notNull().default(10),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
