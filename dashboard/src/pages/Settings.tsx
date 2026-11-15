@@ -45,8 +45,6 @@ export default function Settings() {
   const [connecting, setConnecting] = useState(false);
   const [fbReady, setFbReady] = useState(false);
   const metaConfigRef = useRef<{ appId: string; configId: string } | null>(null);
-  const [d360Key, setD360Key] = useState('');
-  const [d360Connecting, setD360Connecting] = useState(false);
 
   const log = (msg: string) => {
     console.log('[WA Debug]', msg);
@@ -250,25 +248,6 @@ export default function Settings() {
     }
   };
 
-  const handleConnectD360 = async () => {
-    if (!d360Key.trim()) {
-      setMessage({ type: 'error', text: 'יש להזין API key' });
-      return;
-    }
-    setD360Connecting(true);
-    try {
-      const res = await api.connectDialog360(d360Key.trim());
-      setMessage({ type: 'success', text: `360dialog חובר! מספר: ${res.displayPhone}` });
-      setD360Key('');
-      const s = await api.getWhatsAppStatus();
-      setWaStatus(s);
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'שגיאה בחיבור 360dialog' });
-    } finally {
-      setD360Connecting(false);
-    }
-  };
-
   if (loading) return <div className="text-center py-12 text-gray-500">טוען...</div>;
 
   return (
@@ -457,52 +436,6 @@ export default function Settings() {
         )}
       </section>
 
-      {/* 360dialog connect (alternative to Meta direct) */}
-      <section className="bg-white rounded-xl shadow-sm p-6 mb-4">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4">חיבור 360dialog</h2>
-
-        {waStatus?.provider === 'dialog360' && waStatus.connected ? (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-3 h-3 bg-accent-500 rounded-full"></span>
-              <span className="text-sm text-accent-700 font-medium">מחובר דרך 360dialog</span>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-sm text-gray-500" dir="ltr">
-                <span className="text-gray-400">Phone Number ID:</span> {waStatus.phoneNumberId}
-              </p>
-            </div>
-            <button
-              onClick={handleDisconnect}
-              className="text-sm text-red-500 hover:text-red-700 transition-colors"
-            >
-              נתק
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-500">
-              חלופה ל-Meta ישיר. הדבק כאן את ה-API key שקיבלת מ-360dialog Hub.
-            </p>
-            <input
-              type="password"
-              value={d360Key}
-              onChange={(e) => setD360Key(e.target.value)}
-              placeholder="D360 API Key"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              dir="ltr"
-              autoComplete="off"
-            />
-            <button
-              onClick={handleConnectD360}
-              disabled={d360Connecting}
-              className="bg-primary-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
-            >
-              {d360Connecting ? 'מחבר...' : 'חבר 360dialog'}
-            </button>
-          </div>
-        )}
-      </section>
       </>
       )}
 
