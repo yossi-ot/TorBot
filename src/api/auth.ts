@@ -1,10 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
-import { v4 as uuid } from 'uuid';
 import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import { signJwt, verifyJwt } from './middleware.js';
-import { generateEntryCode } from '../utils/entry-code.js';
+import { createTenantWithOwner } from '../db/provision-tenant.js';
 
 export function registerAuthRoutes(app: FastifyInstance) {
   // Login with email + password
@@ -52,54 +51,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: 'אימייל כבר קיים במערכת' });
     }
 
-    const tenantId = uuid();
-    const userId = uuid();
-    const passwordHash = await bcrypt.hash(password, 10);
-    const entryCode = await generateEntryCode(businessName);
-
-    // Create tenant - on the shared platform number by default. Businesses
-    // with their own approved WhatsApp number still connect it from Settings.
-    await db.insert(schema.tenants).values({
-      id: tenantId,
-      name: businessName,
-      phone,
-      whatsappPhoneNumberId: '',
-      whatsappAccessToken: '',
-      entryCode,
-      timezone: 'Asia/Jerusalem',
-      cancellationPolicy: 'ביטול עד 2 שעות לפני התור',
-      icalToken: uuid(),
-    });
-
-    // Create user
-    await db.insert(schema.users).values({
-      id: userId,
-      email: email.toLowerCase(),
-      passwordHash,
-      tenantId,
-      role: 'owner',
-    });
-
-    // Default working hours (Sun-Thu 09:00-18:00, Fri 09:00-13:00)
-    const defaultHours = [
-      { day: 0, start: '09:00', end: '18:00' },
-      { day: 1, start: '09:00', end: '18:00' },
-      { day: 2, start: '09:00', end: '18:00' },
-      { day: 3, start: '09:00', end: '18:00' },
-      { day: 4, start: '09:00', end: '18:00' },
-      { day: 5, start: '09:00', end: '13:00' },
-    ];
-
-    for (const h of defaultHours) {
-      await db.insert(schema.workingHours).values({
-        id: uuid(),
-        tenantId,
-        staffId: null,
-        dayOfWeek: h.day,
-        startTime: h.start,
-        endTime: h.end,
-      });
-    }
+    const { tenantId, userId } = await createTenantWithOwner({ businessName, phone, email, password });
 
     const token = signJwt({ userId, tenantId, role: 'owner' });
     return { token, tenantId };

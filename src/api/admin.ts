@@ -2,8 +2,36 @@ import { FastifyInstance } from 'fastify';
 import { db, schema } from '../db/index.js';
 import { eq, sql } from 'drizzle-orm';
 import { signJwt, isPlatformAdmin } from './middleware.js';
+import { createTenantWithOwner } from '../db/provision-tenant.js';
 
 export function registerAdminRoutes(app: FastifyInstance) {
+  // Create a new business (same provisioning as self-service register)
+  app.post('/api/admin/tenants', async (request, reply) => {
+    if (!isPlatformAdmin(request)) {
+      return reply.code(403).send({ error: 'אין הרשאה' });
+    }
+
+    const { businessName, phone, email, password } = request.body as {
+      businessName?: string;
+      phone?: string;
+      email?: string;
+      password?: string;
+    };
+
+    if (!businessName || !phone || !email || !password) {
+      return reply.code(400).send({ error: 'כל השדות נדרשים' });
+    }
+
+    const [existing] = await db.select().from(schema.users)
+      .where(eq(schema.users.email, email.toLowerCase()));
+    if (existing) {
+      return reply.code(409).send({ error: 'אימייל כבר קיים במערכת' });
+    }
+
+    const { tenantId, entryCode } = await createTenantWithOwner({ businessName, phone, email, password });
+    return { ok: true, tenantId, entryCode };
+  });
+
   // Get all tenants with stats
   app.get('/api/admin/tenants', async (request, reply) => {
     if (!isPlatformAdmin(request)) {

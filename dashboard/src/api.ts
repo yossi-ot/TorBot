@@ -187,6 +187,10 @@ export const api = {
 
   // Admin
   getTenants: () => request<any[]>('/admin/tenants'),
+  createTenant: (data: { businessName: string; phone: string; email: string; password: string }) =>
+    request<{ ok: boolean; tenantId: string; entryCode: string }>('/admin/tenants', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
   impersonateTenant: (tenantId: string) =>
     request<{ token: string; tenantName: string }>(`/admin/impersonate/${tenantId}`, { method: 'POST', body: '{}' }),
 
