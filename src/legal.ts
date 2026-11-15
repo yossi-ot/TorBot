@@ -26,7 +26,7 @@ const HEADER = `<div class="brand">
 </div>`;
 
 const FOOTER = `<div class="footer">
-  TorBot · יוסי אותמזגין · מיצר 31, קצרין · <a href="mailto:utmazgin@gmail.com">utmazgin@gmail.com</a><br>
+  TorBot · שגית אותמזגין · מיצר 31, קצרין · <a href="mailto:utmazgin@gmail.com">utmazgin@gmail.com</a><br>
   <a href="/privacy">מדיניות פרטיות</a> · <a href="/terms">תנאי שימוש</a> · <a href="/">דף הבית</a>
 </div>`;
 
@@ -43,7 +43,7 @@ ${HEADER}
 <h1>מדיניות פרטיות</h1>
 <p class="meta">עודכן לאחרונה: 3 במאי 2026</p>
 
-<p>TorBot ("השירות", "אנחנו") הוא שירות ניהול תורים בוואטסאפ עבור עסקים. השירות מופעל ע"י <strong>יוסי אותמזגין</strong>, עוסק פטור, מיצר 31, קצרין, ישראל. ניתן ליצור קשר באימייל <a href="mailto:utmazgin@gmail.com">utmazgin@gmail.com</a>.</p>
+<p>TorBot ("השירות", "אנחנו") הוא שירות ניהול תורים בוואטסאפ עבור עסקים. השירות מופעל ע"י <strong>שגית אותמזגין</strong>, עוסק פטור, מיצר 31, קצרין, ישראל. ניתן ליצור קשר באימייל <a href="mailto:utmazgin@gmail.com">utmazgin@gmail.com</a>.</p>
 
 <h2>1. אילו נתונים אנו אוספים</h2>
 <p><strong>מבעלי עסקים שנרשמים לשירות:</strong></p>
@@ -128,7 +128,7 @@ ${HEADER}
 <h1>תנאי שימוש</h1>
 <p class="meta">עודכן לאחרונה: 3 במאי 2026</p>
 
-<p>שירות TorBot ("השירות") מופעל ע"י <strong>יוסי אותמזגין</strong>, עוסק פטור, מיצר 31, קצרין. השימוש בשירות מהווה הסכמה לתנאים אלה.</p>
+<p>שירות TorBot ("השירות") מופעל ע"י <strong>שגית אותמזגין</strong>, עוסק פטור, מיצר 31, קצרין. השימוש בשירות מהווה הסכמה לתנאים אלה.</p>
 
 <h2>1. תיאור השירות</h2>
 <p>TorBot מספק לעסקים פלטפורמה לקבלת בקשות תורים מלקוחות באמצעות וואטסאפ, ניהול לוח זמנים, ושליחת תזכורות אוטומטיות. השירות מבוסס על WhatsApp Business Cloud API של Meta.</p>
