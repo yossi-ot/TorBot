@@ -9,6 +9,7 @@ const LANDING_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#2E97D4">
+<meta name="facebook-domain-verification" content="brbolv9e5tvrwxzz12u8vb0sblufwr">
 <title>TorBot · זימון תורים חכם ומהיר בוואטסאפ</title>
 <link rel="icon" type="image/png" href="/dashboard/brand/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
