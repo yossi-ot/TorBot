@@ -18,6 +18,9 @@ export const tenants = pgTable('tenants', {
   // Tenants on the shared platform number (no WABA of their own) are matched
   // to incoming customers via this code instead of whatsappPhoneNumberId.
   entryCode: text('entry_code'),
+  // Customizable greeting pre-filled in the wa.me link (entry code is still
+  // appended automatically so routing keeps working - see entry-link.ts).
+  linkMessage: text('link_message'),
   // The one tenant whose WABA/number is physically shared by every
   // no-own-number tenant. There should be exactly one of these.
   isSharedNumberOwner: boolean('is_shared_number_owner').notNull().default(false),

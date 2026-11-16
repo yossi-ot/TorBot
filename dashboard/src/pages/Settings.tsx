@@ -17,6 +17,7 @@ interface TenantSettings {
   aiSystemPrompt: string;
   cancellationPolicy: string;
   entryCode: string;
+  linkMessage: string;
   hasOwnNumber: boolean;
   bufferMinutes: number;
 }
@@ -30,9 +31,11 @@ interface WhatsAppStatus {
   tokenExpiring: boolean;
 }
 
+const DEFAULT_LINK_MESSAGE = 'היי! 👋 אני רוצה לקבוע תור';
+
 const emptySettings: TenantSettings = {
   name: '', phone: '', address: '', timezone: 'Asia/Jerusalem',
-  aiSystemPrompt: '', cancellationPolicy: '', entryCode: '', hasOwnNumber: false,
+  aiSystemPrompt: '', cancellationPolicy: '', entryCode: '', linkMessage: '', hasOwnNumber: false,
   bufferMinutes: 10,
 };
 
@@ -308,7 +311,7 @@ export default function Settings() {
           <p className="text-sm text-gray-500 mb-4">
             שתפו את הקישור הזה עם הלקוחות שלכם (באתר, באינסטגרם, בחתימת מייל) - הם יגיעו ישירות לצ'אט איתכם.
           </p>
-          <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
+          <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3 mb-4">
             <p className="text-sm font-mono text-gray-700" dir="ltr">
               {window.location.origin}/w/{form.entryCode}
             </p>
@@ -318,6 +321,24 @@ export default function Settings() {
             >
               העתק
             </button>
+          </div>
+
+          <label className="block text-sm font-medium text-gray-600 mb-1">הודעה פתוחה בוואטסאפ ללקוח</label>
+          <textarea
+            value={form.linkMessage}
+            onChange={(e) => update('linkMessage', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
+            rows={2}
+            placeholder={DEFAULT_LINK_MESSAGE}
+          />
+          <p className="text-xs text-gray-400 mt-1 mb-2">
+            זו ההודעה שתיפתח מוכנה אצל הלקוח כשהוא לוחץ על הקישור. קוד הזיהוי שלכם ({form.entryCode}) יתווסף אוטומטית בסוף ההודעה - אל תמחקו אותו אם אתם עורכים את ההודעה בעצמכם לפני השליחה.
+          </p>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-400 mb-1">תצוגה מקדימה:</p>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+              {(form.linkMessage || DEFAULT_LINK_MESSAGE)}{'\n\n'}(קוד: {form.entryCode})
+            </p>
           </div>
         </section>
       )}

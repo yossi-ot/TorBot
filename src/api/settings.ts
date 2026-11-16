@@ -21,6 +21,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       aiSystemPrompt: tenant.aiSystemPrompt || '',
       cancellationPolicy: tenant.cancellationPolicy || '',
       entryCode: tenant.entryCode || '',
+      linkMessage: tenant.linkMessage || '',
       hasOwnNumber: !!(tenant.whatsappPhoneNumberId && tenant.whatsappPhoneNumberId.length > 0),
       bufferMinutes: tenant.bufferMinutes,
     };
@@ -37,6 +38,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       aiSystemPrompt?: string;
       cancellationPolicy?: string;
       bufferMinutes?: number;
+      linkMessage?: string;
     };
 
     const updateData: Record<string, string | number> = {};
@@ -46,6 +48,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
     if (body.timezone !== undefined) updateData.timezone = body.timezone;
     if (body.aiSystemPrompt !== undefined) updateData.aiSystemPrompt = body.aiSystemPrompt;
     if (body.cancellationPolicy !== undefined) updateData.cancellationPolicy = body.cancellationPolicy;
+    if (body.linkMessage !== undefined) updateData.linkMessage = body.linkMessage;
     if (body.bufferMinutes !== undefined) {
       if (!Number.isInteger(body.bufferMinutes) || body.bufferMinutes < 0) {
         return reply.code(400).send({ error: 'זמן המרווח חייב להיות מספר שלם וחיובי' });

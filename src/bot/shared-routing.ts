@@ -10,6 +10,16 @@ const PENDING_SELECTION_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 type Tenant = typeof schema.tenants.$inferSelect;
 
+// Matches the "(קוד: XXXX)" suffix entry-link.ts appends after the
+// tenant's (customizable, freely-editable) greeting text.
+const CODE_SUFFIX_RE = /\(קוד:\s*([A-Za-z0-9]+)\)/;
+
+/** Pulls the entry code out of an incoming message, whether it's the raw code (older links) or a full greeting + "(קוד: XXX)" suffix. */
+function extractEntryCode(text: string): string {
+  const match = text.match(CODE_SUFFIX_RE);
+  return match ? match[1] : text;
+}
+
 async function linkCustomerToTenant(customerPhone: string, tenantId: string) {
   const now = new Date().toISOString();
   const [existing] = await db.select().from(schema.customerTenantLinks)
@@ -87,7 +97,8 @@ export async function resolveSharedTenant(
 
   // 2. Does the message carry an entry code (fresh click on a business's link)?
   if (trimmed) {
-    const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.entryCode, trimmed));
+    const code = extractEntryCode(trimmed);
+    const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.entryCode, code));
     if (tenant) {
       await linkCustomerToTenant(customerPhone, tenant.id);
       return tenant;
